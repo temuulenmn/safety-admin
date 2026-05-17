@@ -22,7 +22,6 @@ export default function Brigades() {
   const [modal,    setModal]    = useState(false)
   const [editing,  setEditing]  = useState(null)
   const [detail,   setDetail]   = useState(null)
-
   const load = () => {
     setLoading(true)
     Promise.all([
