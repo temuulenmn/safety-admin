@@ -1,7 +1,7 @@
 import axios from 'axios'
 import { Toast } from '@coreui/coreui'
 
-const BASE_URL = import.meta.env.VITE_API_URL
+const BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:3500').replace(/\/+$/, '')
 
 // ── Toast helper ──────────────────────────────────────────────────────
 function showToast(message, type = 'success') {
