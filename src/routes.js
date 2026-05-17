@@ -14,6 +14,8 @@ const SiteAccess     = React.lazy(() => import('./views/safety/SiteAccess'))
 const Tools          = React.lazy(() => import('./views/safety/Tools'))
 const Violations     = React.lazy(() => import('./views/safety/Violations'))
 const PenaltyFund    = React.lazy(() => import('./views/safety/PenaltyFund'))
+const Brigades       = React.lazy(() => import('./views/safety/Brigades'))
+const BrigadeContracts = React.lazy(() => import('./views/safety/BrigadeContracts'))
 const MarketCatalog  = React.lazy(() => import('./views/marketplace/Catalog'))
 const MarketOrders   = React.lazy(() => import('./views/marketplace/Orders'))
 
@@ -33,6 +35,8 @@ const routes = [
   { path: '/tools',        name: 'Багаж хэрэгсэл',   element: Tools },
   { path: '/violations',   name: 'Зөрчил/Торгууль',  element: Violations },
   { path: '/penalty-fund', name: 'Торгуулийн сан',   element: PenaltyFund },
+  { path: '/brigades',          name: 'Бригадууд',        element: Brigades },
+  { path: '/brigade-contracts', name: 'Бригадын гэрээ',   element: BrigadeContracts },
   { path: '/marketplace',         name: 'Барааны каталог',   element: MarketCatalog },
   { path: '/marketplace/orders',  name: 'Миний захиалгууд',  element: MarketOrders },
 ]

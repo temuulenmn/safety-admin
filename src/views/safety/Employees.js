@@ -8,6 +8,7 @@ import { AgGridReact } from 'ag-grid-react'
 import api from 'src/services/api'
 import dayjs from 'dayjs'
 import { useGridTheme, defaultColDef, makeServerDatasource } from 'src/utils/agGrid'
+import { MN_BANKS } from 'src/utils/banks'
 
 const STATUS_COLOR = { active:'success', inactive:'secondary', on_leave:'warning', terminated:'danger' }
 const STATUS_LABEL = { active:'Идэвхтэй', inactive:'Идэвхгүй', on_leave:'Чөлөөт', terminated:'Чөлөөлөгдсөн' }
@@ -15,6 +16,7 @@ const EMPTY = {
   emp_code:'', first_name:'', last_name:'', gender:'', birth_date:'',
   register_number:'', phone:'', email:'', address:'', position:'',
   department_id:'', hire_date:'', base_salary:'', status:'active',
+  bank_name:'', bank_account:'',
 }
 
 export default function Employees() {
@@ -51,6 +53,7 @@ export default function Employees() {
       email: row.email||'', address: row.address||'', position: row.position||'',
       department_id: row.department_id||'', hire_date: row.hire_date?.slice(0,10)||'',
       base_salary: row.base_salary||'', status: row.status,
+      bank_name: row.bank_name||'', bank_account: row.bank_account||'',
     })
     setModal(true)
   }
@@ -159,6 +162,24 @@ export default function Employees() {
                 <option value="on_leave">Чөлөөт</option>
                 <option value="terminated">Чөлөөлөгдсөн</option>
               </CFormSelect>
+            </CCol>
+
+            {/* ── Bank details ─────────────────────────────────── */}
+            <CCol sm={12}>
+              <hr className="my-1" />
+              <small className="text-medium-emphasis fw-semibold">🏦 Банкны мэдээлэл (цалин шилжүүлэхэд хэрэглэнэ)</small>
+            </CCol>
+            <CCol sm={6}>
+              <CFormLabel>Банк</CFormLabel>
+              <CFormSelect value={form.bank_name} onChange={e => setForm(f => ({...f, bank_name: e.target.value}))}>
+                <option value="">-- Сонгох --</option>
+                {MN_BANKS.map(b => <option key={b} value={b}>{b}</option>)}
+              </CFormSelect>
+            </CCol>
+            <CCol sm={6}>
+              <CFormLabel>Дансны дугаар</CFormLabel>
+              <CFormInput value={form.bank_account} onChange={e => setForm(f => ({...f, bank_account: e.target.value}))}
+                placeholder="1234567890" />
             </CCol>
           </CRow></CForm>
         </CModalBody>

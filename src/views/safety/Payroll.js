@@ -137,36 +137,9 @@ export default function Payroll() {
               )}
               <CCardBody className="p-0">
                 {entLoad ? <div className="py-4 text-center"><CSpinner /></div> : (
-                  <CTable hover responsive small>
-                    <CTableHead>
-                      <CTableRow>
-                        <CTableHeaderCell>Код</CTableHeaderCell>
-                        <CTableHeaderCell>Нэр</CTableHeaderCell>
-                        <CTableHeaderCell>Хэлтэс</CTableHeaderCell>
-                        <CTableHeaderCell className="text-end">Үндсэн</CTableHeaderCell>
-                        <CTableHeaderCell className="text-end">Илүү</CTableHeaderCell>
-                        <CTableHeaderCell className="text-end">Урамш</CTableHeaderCell>
-                        <CTableHeaderCell className="text-end">Суутгал</CTableHeaderCell>
-                        <CTableHeaderCell className="text-end">Цэвэр</CTableHeaderCell>
-                      </CTableRow>
-                    </CTableHead>
-                    <CTableBody>
-                      {entries.map(e => (
-                        <CTableRow key={e.id}>
-                          <CTableDataCell>{e.emp_code}</CTableDataCell>
-                          <CTableDataCell>{e.full_name}</CTableDataCell>
-                          <CTableDataCell>{e.department_name}</CTableDataCell>
-                          <CTableDataCell className="text-end">{fmt(e.base_salary)}</CTableDataCell>
-                          <CTableDataCell className="text-end">{fmt(e.overtime_pay)}</CTableDataCell>
-                          <CTableDataCell className="text-end">{fmt(e.bonus)}</CTableDataCell>
-                          <CTableDataCell className="text-end text-danger">
-                            {fmt(Number(e.deduction_tax||0)+Number(e.deduction_social||0)+Number(e.deduction_other||0))}
-                          </CTableDataCell>
-                          <CTableDataCell className="text-end fw-bold">{fmt(e.net_salary)}</CTableDataCell>
-                        </CTableRow>
-                      ))}
-                    </CTableBody>
-                  </CTable>
+                  <PayrollEntriesTable entries={entries}
+                    canEdit={selected.status === 'draft'}
+                    onUpdated={() => openPeriod(selected)} period={selected} />
                 )}
               </CCardBody>
             </CCard>
@@ -200,5 +173,121 @@ export default function Payroll() {
         </CModalFooter>
       </CModal>
     </div>
+  )
+}
+
+// ── Editable payroll entries table ──────────────────────────────────
+function PayrollEntriesTable({ entries, canEdit, onUpdated, period }) {
+  const [editing, setEditing] = useState(null)  // employee_id of row being edited
+  const [bonusVal, setBonusVal] = useState('')
+  const [noteVal,  setNoteVal]  = useState('')
+  const [saving,   setSaving]   = useState(false)
+
+  const startEdit = (e) => {
+    setEditing(e.employee_id)
+    setBonusVal(Number(e.bonus || 0))
+    setNoteVal(e.note || '')
+  }
+  const save = async (e) => {
+    setSaving(true)
+    try {
+      await api.upsertEntry(period.id, {
+        employee_id: e.employee_id,
+        base_salary: e.base_salary,
+        overtime_hours: e.overtime_hours,
+        overtime_pay: e.overtime_pay,
+        bonus: Number(bonusVal) || 0,
+        deduction_tax: e.deduction_tax,
+        deduction_social: e.deduction_social,
+        deduction_other: e.deduction_other,
+        worked_days: e.worked_days,
+        absent_days: e.absent_days,
+        note: noteVal || null,
+      })
+      setEditing(null); onUpdated()
+    } finally { setSaving(false) }
+  }
+  const cancel = () => setEditing(null)
+
+  return (
+    <CTable hover responsive small className="mb-0">
+      <CTableHead>
+        <CTableRow>
+          <CTableHeaderCell>Код</CTableHeaderCell>
+          <CTableHeaderCell>Нэр</CTableHeaderCell>
+          <CTableHeaderCell>Хэлтэс</CTableHeaderCell>
+          <CTableHeaderCell className="text-end">Үндсэн</CTableHeaderCell>
+          <CTableHeaderCell className="text-end">Илүү</CTableHeaderCell>
+          <CTableHeaderCell className="text-end" style={{minWidth:140}}>Урамшуулал</CTableHeaderCell>
+          <CTableHeaderCell className="text-end">Суутгал</CTableHeaderCell>
+          <CTableHeaderCell className="text-end">Цэвэр</CTableHeaderCell>
+          {canEdit && <CTableHeaderCell style={{width:90}}></CTableHeaderCell>}
+        </CTableRow>
+      </CTableHead>
+      <CTableBody>
+        {entries.map(e => {
+          const isEditing = editing === e.employee_id
+          const deduction = Number(e.deduction_tax||0)+Number(e.deduction_social||0)+Number(e.deduction_other||0)
+          return (
+            <CTableRow key={e.id} active={isEditing}>
+              <CTableDataCell>{e.emp_code}</CTableDataCell>
+              <CTableDataCell>{e.full_name}</CTableDataCell>
+              <CTableDataCell>{e.department_name}</CTableDataCell>
+              <CTableDataCell className="text-end">{fmt(e.base_salary)}</CTableDataCell>
+              <CTableDataCell className="text-end">{fmt(e.overtime_pay)}</CTableDataCell>
+              <CTableDataCell className="text-end">
+                {isEditing ? (
+                  <CFormInput size="sm" type="number" value={bonusVal}
+                    onChange={ev => setBonusVal(ev.target.value)}
+                    className="text-end" autoFocus />
+                ) : (
+                  <span className={Number(e.bonus) > 0 ? 'text-success fw-semibold' : ''}>
+                    {fmt(e.bonus)}
+                  </span>
+                )}
+              </CTableDataCell>
+              <CTableDataCell className="text-end text-danger">{fmt(deduction)}</CTableDataCell>
+              <CTableDataCell className="text-end fw-bold">
+                {fmt(Number(e.base_salary||0) + Number(e.overtime_pay||0) + (isEditing ? Number(bonusVal||0) : Number(e.bonus||0)) - deduction)}
+              </CTableDataCell>
+              {canEdit && (
+                <CTableDataCell>
+                  {isEditing ? (
+                    <div className="d-flex gap-1">
+                      <CButton size="sm" color="success" onClick={() => save(e)} disabled={saving}>
+                        {saving ? <CSpinner size="sm" /> : '✓'}
+                      </CButton>
+                      <CButton size="sm" color="secondary" variant="outline" onClick={cancel}>×</CButton>
+                    </div>
+                  ) : (
+                    <CButton size="sm" color="primary" variant="outline" onClick={() => startEdit(e)}>
+                      Урамш
+                    </CButton>
+                  )}
+                </CTableDataCell>
+              )}
+            </CTableRow>
+          )
+        })}
+        {editing !== null && (
+          <CTableRow>
+            <CTableDataCell colSpan={canEdit ? 9 : 8} className="bg-body-tertiary">
+              <div className="d-flex align-items-center gap-2">
+                <CFormLabel className="mb-0 small text-medium-emphasis">Тэмдэглэл:</CFormLabel>
+                <CFormInput size="sm" value={noteVal} onChange={e => setNoteVal(e.target.value)}
+                  placeholder="Урамшууллын шалтгаан (заавал биш)" />
+              </div>
+            </CTableDataCell>
+          </CTableRow>
+        )}
+        {entries.length === 0 && (
+          <CTableRow>
+            <CTableDataCell colSpan={canEdit ? 9 : 8} className="text-center text-medium-emphasis py-4">
+              Ажилтан алга. "⟲ Цалин тооцох" товчоор үүсгэнэ үү
+            </CTableDataCell>
+          </CTableRow>
+        )}
+      </CTableBody>
+    </CTable>
   )
 }

@@ -207,6 +207,13 @@ const api = {
   addBrigadeMembers:   (id, data) => client.post(`/brigades/${id}/members`, data),
   removeBrigadeMember: (mid)      => client.delete(`/brigades/members/${mid}`),
 
+  // ── Brigade tasks (assignments) ──────────────────────────────────
+  getBrigadeTaskStats: ()         => client.get('/brigades/tasks/stats'),
+  getBrigadeTasks:     (params)   => client.get('/brigades/tasks', { params }),
+  createBrigadeTask:   (data)     => client.post('/brigades/tasks', data),
+  updateBrigadeTask:   (id, data) => client.put(`/brigades/tasks/${id}`, data),
+  deleteBrigadeTask:   (id)       => client.delete(`/brigades/tasks/${id}`),
+
   // ── Brigade contracts ────────────────────────────────────────────
   getBrigadeContracts: (params)   => client.get('/brigades/contracts', { params }),
   getBrigadeContract:  (id)       => client.get(`/brigades/contracts/${id}`),
