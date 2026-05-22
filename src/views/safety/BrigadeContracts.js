@@ -6,6 +6,7 @@ import {
   CTable, CTableHead, CTableRow, CTableHeaderCell, CTableBody, CTableDataCell,
   CAlert, CProgress,
 } from '@coreui/react'
+import { useSelector } from 'react-redux'
 import api from 'src/services/api'
 import dayjs from 'dayjs'
 
@@ -20,16 +21,17 @@ export default function BrigadeContracts() {
   const [status,  setStatus]  = useState('')
   const [modal,   setModal]   = useState(false)
   const [detail,  setDetail]  = useState(null)
+  const currentProjectId = useSelector(s => s.currentProjectId)
 
   const load = () => {
     setLoading(true)
-    api.getBrigadeContracts({ status: status || undefined, limit: 200 })
+    api.getBrigadeContracts({ status: status || undefined, project_id: currentProjectId || undefined, limit: 200 })
       .then(r => setRows(r.data || [])).finally(()=>setLoading(false))
   }
   useEffect(() => {
     api.getBrigades({ active:'true' }).then(r => setBrigades(r.data || []))
   }, [])
-  useEffect(load, [status])
+  useEffect(load, [status, currentProjectId])
 
   const open = (id) => api.getBrigadeContract(id).then(r => setDetail(r.data))
 

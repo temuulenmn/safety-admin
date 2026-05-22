@@ -6,6 +6,7 @@ import {
   CTable, CTableHead, CTableRow, CTableHeaderCell, CTableBody, CTableDataCell,
 } from '@coreui/react'
 import { AgGridReact } from 'ag-grid-react'
+import { useSelector } from 'react-redux'
 import { useGridTheme, defaultColDef, makeServerDatasource } from 'src/utils/agGrid'
 import api from 'src/services/api'
 import { downloadCSV } from 'src/utils/exporters'
@@ -26,12 +27,11 @@ const fmtMNT = n => Number(n||0).toLocaleString('mn-MN') + '₮'
 export default function Violations() {
   const gridTheme = useGridTheme()
   const gridRef = useRef()
+  const currentProjectId = useSelector(s => s.currentProjectId)
   const [stats,    setStats]    = useState(null)
   const [emps,     setEmps]     = useState([])
-  const [projects, setProjects] = useState([])
   const [statusF,  setStatusF]  = useState('')
   const [typeF,    setTypeF]    = useState('')
-  const [projectF, setProjectF] = useState('')
   const [modal,    setModal]    = useState(false)
   const [form,     setForm]     = useState({ employee_id:'', violation_type:'clothing_missing', zone:'', description:'', missing_items:'', penalty_amount:20000 })
   const [saving,   setSaving]   = useState(false)
@@ -40,20 +40,19 @@ export default function Violations() {
 
   useEffect(() => {
     api.getEmployees({ status:'active', limit:500 }).then(r => setEmps(r.data || []))
-    api.getProjects().then(r => setProjects(r.data || []))
     refreshStats()
   }, [])
   const refreshStats = () => api.getViolationStats({ days: 30 }).then(r => setStats(r.data))
 
   const refresh = useCallback(() => {
     const ds = makeServerDatasource(({ page, limit }) =>
-      api.getViolations({ page, limit, status: statusF || undefined, violation_type: typeF || undefined, project_id: projectF || undefined }))
+      api.getViolations({ page, limit, status: statusF || undefined, violation_type: typeF || undefined, project_id: currentProjectId || undefined }))
     gridRef.current?.api?.setGridOption('datasource', ds)
-  }, [statusF, typeF, projectF])
+  }, [statusF, typeF, currentProjectId])
   useEffect(() => { refresh() }, [refresh])
 
   const exportExcel = async () => {
-    const r = await api.getViolations({ page:1, limit:5000, status: statusF || undefined, violation_type: typeF || undefined, project_id: projectF || undefined })
+    const r = await api.getViolations({ page:1, limit:5000, status: statusF || undefined, violation_type: typeF || undefined, project_id: currentProjectId || undefined })
     downloadCSV('zorchil', ['Огноо','Код','Ажилтан','Хэлтэс','Төрөл','Бүс','Төсөл','Торгууль','Төлөв'],
       (r.data || []).map(v => [
         v.occurred_at ? dayjs(v.occurred_at).format('YYYY-MM-DD HH:mm') : '',
@@ -174,12 +173,6 @@ export default function Violations() {
               <CFormSelect value={typeF} onChange={e=>setTypeF(e.target.value)}>
                 <option value="">Бүх төрөл</option>
                 {Object.entries(TYPE_LABEL).map(([k,l]) => <option key={k} value={k}>{l}</option>)}
-              </CFormSelect>
-            </CCol>
-            <CCol sm={3}>
-              <CFormSelect value={projectF} onChange={e=>setProjectF(e.target.value)}>
-                <option value="">Бүх төсөл</option>
-                {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
               </CFormSelect>
             </CCol>
           </CRow>

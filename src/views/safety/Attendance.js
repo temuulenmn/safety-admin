@@ -6,6 +6,7 @@ import {
   CModal, CModalHeader, CModalTitle, CModalBody, CModalFooter, CFormLabel,
 } from '@coreui/react'
 import { AgGridReact } from 'ag-grid-react'
+import { useSelector } from 'react-redux'
 import { useGridTheme, defaultColDef, makeServerDatasource } from 'src/utils/agGrid'
 import api from 'src/services/api'
 import dayjs from 'dayjs'
@@ -18,8 +19,7 @@ export default function Attendance() {
   const [summary,  setSummary] = useState([])
   const [loading,  setLoading] = useState(false)
   const [emps,     setEmps]    = useState([])
-  const [projects, setProjects]= useState([])
-  const [projectF, setProjectF]= useState('')
+  const currentProjectId = useSelector(s => s.currentProjectId)
   const [dateFrom, setDateFrom]= useState(dayjs().format('YYYY-MM-DD'))
   const [dateTo,   setDateTo]  = useState(dayjs().format('YYYY-MM-DD'))
   const [sumYear,  setSumYear] = useState(dayjs().year())
@@ -30,7 +30,6 @@ export default function Attendance() {
 
   useEffect(() => {
     api.getEmployees({ status: 'active', limit: 500 }).then(r => setEmps(r.data || []))
-    api.getProjects().then(r => setProjects(r.data || []))
     loadToday()
   }, [])
 
@@ -42,10 +41,10 @@ export default function Attendance() {
   // ── Logs: server-side AG Grid ────────────────────────────────────────
   const refreshLogs = useCallback(() => {
     const ds = makeServerDatasource(({ page, limit, sort_by, sort_dir }) =>
-      api.getAttendance({ page, limit, date_from: dateFrom, date_to: dateTo, project_id: projectF || undefined, sort_by, sort_dir })
+      api.getAttendance({ page, limit, date_from: dateFrom, date_to: dateTo, project_id: currentProjectId || undefined, sort_by, sort_dir })
     )
     logsGridRef.current?.api?.setGridOption('datasource', ds)
-  }, [dateFrom, dateTo, projectF])
+  }, [dateFrom, dateTo, currentProjectId])
 
   useEffect(() => { if (tab === 'logs') refreshLogs() }, [tab, refreshLogs])
 
@@ -143,11 +142,6 @@ export default function Attendance() {
                   <CFormInput type="date" value={dateFrom} onChange={e=>setDateFrom(e.target.value)} /></CCol>
                 <CCol sm={3}><CFormLabel className="mb-1">Эцсийн огноо</CFormLabel>
                   <CFormInput type="date" value={dateTo} onChange={e=>setDateTo(e.target.value)} /></CCol>
-                <CCol sm={3}><CFormLabel className="mb-1">Төсөл</CFormLabel>
-                  <CFormSelect value={projectF} onChange={e=>setProjectF(e.target.value)}>
-                    <option value="">Бүх төсөл</option>
-                    {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                  </CFormSelect></CCol>
                 <CCol sm={2}><CButton color="primary" onClick={refreshLogs}>Хайх</CButton></CCol>
               </CRow>
             </CCardHeader>

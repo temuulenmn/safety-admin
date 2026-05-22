@@ -7,6 +7,7 @@ import {
   CTable, CTableHead, CTableRow, CTableHeaderCell, CTableBody, CTableDataCell,
 } from '@coreui/react'
 import { AgGridReact } from 'ag-grid-react'
+import { useSelector } from 'react-redux'
 import { useGridTheme, defaultColDef, makeServerDatasource } from 'src/utils/agGrid'
 import api from 'src/services/api'
 import dayjs from 'dayjs'
@@ -56,12 +57,13 @@ function IndividualTab() {
     api.getEmployees({ status: 'active', limit: 500 }).then(r => setEmps(r.data || []))
   }, [])
 
+  const currentProjectId = useSelector(s => s.currentProjectId)
   const refreshDS = useCallback(() => {
     const ds = makeServerDatasource(({ page, limit, sort_by, sort_dir }) =>
-      api.getSchedules({ page, limit, date_from: dateFrom, date_to: dateTo, sort_by, sort_dir })
+      api.getSchedules({ page, limit, date_from: dateFrom, date_to: dateTo, project_id: currentProjectId || undefined, sort_by, sort_dir })
     )
     gridRef.current?.api?.setGridOption('datasource', ds)
-  }, [dateFrom, dateTo])
+  }, [dateFrom, dateTo, currentProjectId])
   useEffect(() => { refreshDS() }, [refreshDS])
 
   const openCreate = () => { setEditing(null); setForm(EMPTY); setModal(true) }
@@ -177,11 +179,12 @@ function BrigadeTab() {
   const [brigadeF, setBrigadeF] = useState('')
   const [modal,    setModal]    = useState(false)
   const [editing,  setEditing]  = useState(null)
+  const currentProjectId = useSelector(s => s.currentProjectId)
 
   const load = () => {
     setLoading(true)
     Promise.all([
-      api.getBrigadeTasks({ status: statusF || undefined, brigade_id: brigadeF || undefined, limit: 200 }),
+      api.getBrigadeTasks({ status: statusF || undefined, brigade_id: brigadeF || undefined, project_id: currentProjectId || undefined, limit: 200 }),
       api.getBrigadeTaskStats(),
     ]).then(([l, s]) => { setTasks(l.data || []); setStats(s.data) })
       .finally(() => setLoading(false))
@@ -190,7 +193,7 @@ function BrigadeTab() {
     api.getBrigades({ active:'true' }).then(r => setBrigades(r.data || []))
     api.getBrigadeContracts({ limit: 100 }).then(r => setContracts(r.data || []))
   }, [])
-  useEffect(load, [statusF, brigadeF])
+  useEffect(load, [statusF, brigadeF, currentProjectId])
 
   const openCreate = () => { setEditing(null); setModal(true) }
   const openEdit   = (t) => { setEditing(t); setModal(true) }

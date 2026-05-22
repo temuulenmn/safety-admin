@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import { useSelector, useDispatch } from 'react-redux'
 import {
@@ -7,6 +7,7 @@ import {
   CDropdownItem,
   CDropdownMenu,
   CDropdownToggle,
+  CFormSelect,
   CHeader,
   CHeaderNav,
   CHeaderToggler,
@@ -14,6 +15,7 @@ import {
   CNavItem,
   useColorModes,
 } from '@coreui/react'
+import api from 'src/services/api'
 import CIcon from '@coreui/icons-react'
 import {
   cilBell,
@@ -34,8 +36,11 @@ const AppHeader = () => {
 
   const dispatch = useDispatch()
   const sidebarShow = useSelector((state) => state.sidebarShow)
+  const currentProjectId = useSelector((state) => state.currentProjectId)
+  const [projects, setProjects] = useState([])
 
   useEffect(() => {
+    api.getProjects().then((r) => setProjects(r.data || [])).catch(() => {})
     document.addEventListener('scroll', () => {
       headerRef.current &&
         headerRef.current.classList.toggle('shadow-sm', document.documentElement.scrollTop > 0)
@@ -48,10 +53,23 @@ const AppHeader = () => {
         <CHeaderToggler onClick={() => dispatch({ type: 'set', sidebarShow: !sidebarShow })} style={{ marginInlineStart: '-14px' }}>
           <CIcon icon={cilMenu} size="lg" />
         </CHeaderToggler>
-        <CHeaderNav className="d-none d-md-flex">
-          <span>Сайн байна уу? {' '}
+        <CHeaderNav className="ms-2 me-auto d-flex align-items-center">
+          <span className="small text-medium-emphasis me-2 d-none d-lg-inline">Төсөл:</span>
+          <CFormSelect
+            size="sm"
+            style={{ minWidth: 190 }}
+            value={currentProjectId}
+            onChange={(e) => dispatch({ type: 'setProject', currentProjectId: e.target.value })}
+          >
+            <option value="">🏢 Бүх төсөл</option>
+            {projects.map((p) => (
+              <option key={p.id} value={p.id}>📍 {p.name}</option>
+            ))}
+          </CFormSelect>
+        </CHeaderNav>
+        <CHeaderNav className="d-none d-lg-flex me-3">
+          <span className="text-medium-emphasis">
             {localStorage.getItem('first_name')?.substring(0,1)}{'.'}{localStorage.getItem('first_name')}
-            {/*{' '}{localStorage.getItem('organizationUnit')}-{localStorage.getItem('position')}!*/}
           </span>
         </CHeaderNav>
         <CHeaderNav>
