@@ -249,6 +249,31 @@ const api = {
   createWorkerClothing:(data)     => client.post('/worker-clothing', data),
   updateWorkerClothing:(id, data) => client.put(`/worker-clothing/${id}`, data),
   deleteWorkerClothing:(id)       => client.delete(`/worker-clothing/${id}`),
+
+  // ── Material estimation (талбайн хэмжээнээс материал бодох) ───────
+  getMaterialNorms:    (params)   => client.get('/materials/norms', { params }),
+  createMaterialNorm:  (data)     => client.post('/materials/norms', data),
+  updateMaterialNorm:  (id, data) => client.put(`/materials/norms/${id}`, data),
+  deleteMaterialNorm:  (id)       => client.delete(`/materials/norms/${id}`),
+  calculateMaterials:  (data)     => client.post('/materials/calculate', data),
+  getMaterialEstimates:()         => client.get('/materials/estimates'),
+  getMaterialEstimate: (id)       => client.get(`/materials/estimates/${id}`),
+  saveMaterialEstimate:(data)     => client.post('/materials/estimates', data),
+  deleteMaterialEstimate:(id)     => client.delete(`/materials/estimates/${id}`),
+
+  // ── KPI ──────────────────────────────────────────────────────────
+  getKpiOverview:      (params)   => client.get('/kpi/overview', { params }),
+  getKpiTargets:       ()         => client.get('/kpi/targets'),
+  updateKpiTarget:     (data)     => client.put('/kpi/targets', data),
+
+  // ── Projects / Objects (ERP backbone) ────────────────────────────
+  getProjects:         (params)   => client.get('/projects', { params }),
+  getProjectStats:     ()         => client.get('/projects/stats'),
+  getProject:          (id)       => client.get(`/projects/${id}`),
+  getProjectKpi:       (id, params) => client.get(`/projects/${id}/kpi`, { params }),
+  createProject:       (data)     => client.post('/projects', data),
+  updateProject:       (id, data) => client.put(`/projects/${id}`, data),
+  deleteProject:       (id)       => client.delete(`/projects/${id}`),
 }
 
 export default api

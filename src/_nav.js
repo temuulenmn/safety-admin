@@ -7,6 +7,7 @@ import {
   cilMoney, cilBadge, cilShieldAlt, cilEducation, cilLayers, cilLockLocked,
   cilCart, cilList, cilHandPointUp, cilWarning, cilBank,
   cilGroup, cilFile, cilBurn, cilCheckCircle, cilBook,
+  cilCalculator, cilChartPie, cilLocationPin,
 } from '@coreui/icons'
 
 const _nav = [
@@ -15,6 +16,18 @@ const _nav = [
     name: 'Хянах самбар',
     to: '/dashboard',
     icon: <CIcon icon={cilSpeedometer} customClassName="nav-icon" />,
+  },
+  {
+    component: CNavItem,
+    name: 'Төсөл / Объект',
+    to: '/projects',
+    icon: <CIcon icon={cilLocationPin} customClassName="nav-icon" />,
+  },
+  {
+    component: CNavItem,
+    name: 'KPI',
+    to: '/kpi',
+    icon: <CIcon icon={cilChartPie} customClassName="nav-icon" />,
   },
   {
     component: CNavItem,
@@ -93,6 +106,12 @@ const _nav = [
     name: 'Норм дүрэм / Заавар',
     to: '/documents',
     icon: <CIcon icon={cilBook} customClassName="nav-icon" />,
+  },
+  {
+    component: CNavItem,
+    name: 'Материалын тооцоо',
+    to: '/materials',
+    icon: <CIcon icon={cilCalculator} customClassName="nav-icon" />,
   },
   {
     component: CNavItem,
