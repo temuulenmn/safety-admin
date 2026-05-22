@@ -269,6 +269,7 @@ const api = {
   // ── Projects / Objects (ERP backbone) ────────────────────────────
   getProjects:         (params)   => client.get('/projects', { params }),
   getProjectStats:     ()         => client.get('/projects/stats'),
+  getProjectLeaderboard: (params) => client.get('/projects/leaderboard', { params }),
   getProject:          (id)       => client.get(`/projects/${id}`),
   getProjectKpi:       (id, params) => client.get(`/projects/${id}/kpi`, { params }),
   createProject:       (data)     => client.post('/projects', data),

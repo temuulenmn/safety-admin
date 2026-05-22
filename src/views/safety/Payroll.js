@@ -6,6 +6,7 @@ import {
   CForm, CFormInput, CFormLabel,
 } from '@coreui/react'
 import api from 'src/services/api'
+import { downloadCSV } from 'src/utils/exporters'
 import dayjs from 'dayjs'
 
 const STATUS_COLOR = { draft:'secondary', approved:'primary', paid:'success' }
@@ -59,6 +60,17 @@ export default function Payroll() {
     finally { setGenerating(false) }
   }
 
+  const exportExcel = () => {
+    if (!selected) return
+    downloadCSV(`tsalin-${selected.year}-${String(selected.month).padStart(2,'0')}`,
+      ['Код','Нэр','Хэлтэс','Үндсэн','Илүү цаг','Урамшуулал','ААНТТШ','НДШХ','Бусад суутгал','Ажилласан өдөр','Цэвэр'],
+      entries.map(e => [e.emp_code, e.full_name, e.department_name||'',
+        e.base_salary||0, e.overtime_pay||0, e.bonus||0,
+        e.deduction_tax||0, e.deduction_social||0, e.deduction_other||0, e.worked_days||0,
+        e.net_salary ?? (Number(e.base_salary||0)+Number(e.overtime_pay||0)+Number(e.bonus||0)
+          -Number(e.deduction_tax||0)-Number(e.deduction_social||0)-Number(e.deduction_other||0))]))
+  }
+
   return (
     <div className="p-3">
       <div className="d-flex justify-content-between align-items-center mb-3">
@@ -102,6 +114,7 @@ export default function Payroll() {
               <CCardHeader className="d-flex justify-content-between align-items-center">
                 <span className="fw-semibold">{selected.year} / {String(selected.month).padStart(2,'0')} — дэлгэрэнгүй</span>
                 <div>
+                  <CButton size="sm" color="secondary" variant="outline" className="me-2" onClick={exportExcel}>⬇ Excel</CButton>
                   {selected.status === 'draft' && (
                     <>
                       <CButton size="sm" color="info" variant="outline" className="me-2"

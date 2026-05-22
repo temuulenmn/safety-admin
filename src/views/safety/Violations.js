@@ -8,6 +8,7 @@ import {
 import { AgGridReact } from 'ag-grid-react'
 import { useGridTheme, defaultColDef, makeServerDatasource } from 'src/utils/agGrid'
 import api from 'src/services/api'
+import { downloadCSV } from 'src/utils/exporters'
 import dayjs from 'dayjs'
 
 const TYPE_LABEL = {
@@ -27,8 +28,10 @@ export default function Violations() {
   const gridRef = useRef()
   const [stats,    setStats]    = useState(null)
   const [emps,     setEmps]     = useState([])
+  const [projects, setProjects] = useState([])
   const [statusF,  setStatusF]  = useState('')
   const [typeF,    setTypeF]    = useState('')
+  const [projectF, setProjectF] = useState('')
   const [modal,    setModal]    = useState(false)
   const [form,     setForm]     = useState({ employee_id:'', violation_type:'clothing_missing', zone:'', description:'', missing_items:'', penalty_amount:20000 })
   const [saving,   setSaving]   = useState(false)
@@ -37,16 +40,27 @@ export default function Violations() {
 
   useEffect(() => {
     api.getEmployees({ status:'active', limit:500 }).then(r => setEmps(r.data || []))
+    api.getProjects().then(r => setProjects(r.data || []))
     refreshStats()
   }, [])
   const refreshStats = () => api.getViolationStats({ days: 30 }).then(r => setStats(r.data))
 
   const refresh = useCallback(() => {
     const ds = makeServerDatasource(({ page, limit }) =>
-      api.getViolations({ page, limit, status: statusF || undefined, violation_type: typeF || undefined }))
+      api.getViolations({ page, limit, status: statusF || undefined, violation_type: typeF || undefined, project_id: projectF || undefined }))
     gridRef.current?.api?.setGridOption('datasource', ds)
-  }, [statusF, typeF])
+  }, [statusF, typeF, projectF])
   useEffect(() => { refresh() }, [refresh])
+
+  const exportExcel = async () => {
+    const r = await api.getViolations({ page:1, limit:5000, status: statusF || undefined, violation_type: typeF || undefined, project_id: projectF || undefined })
+    downloadCSV('zorchil', ['Огноо','Код','Ажилтан','Хэлтэс','Төрөл','Бүс','Төсөл','Торгууль','Төлөв'],
+      (r.data || []).map(v => [
+        v.occurred_at ? dayjs(v.occurred_at).format('YYYY-MM-DD HH:mm') : '',
+        v.emp_code||'', v.full_name||'', v.department||'',
+        TYPE_LABEL[v.violation_type]||v.violation_type, v.zone||'', v.project_name||'',
+        v.penalty_amount||0, STATUS_LABEL[v.status]||v.status]))
+  }
 
   const openCreate = () => {
     setForm({ employee_id:'', violation_type:'clothing_missing', zone:'', description:'', missing_items:'', penalty_amount:20000 })
@@ -78,6 +92,7 @@ export default function Violations() {
     { field:'violation_type', headerName:'Төрөл', width:140,
       cellRenderer: p => TYPE_LABEL[p.value] || p.value },
     { field:'zone', headerName:'Бүс', width:110 },
+    { field:'project_name', headerName:'Төсөл', width:150, cellRenderer: p => p.value || '—' },
     { field:'penalty_amount', headerName:'Торгууль', width:130,
       cellRenderer: p => <span className="fw-semibold">{fmtMNT(p.value)}</span> },
     { field:'status', headerName:'Төлөв', width:130,
@@ -91,6 +106,7 @@ export default function Violations() {
       <div className="d-flex justify-content-between align-items-center mb-3">
         <h4 className="fw-bold mb-0">Зөрчил / Торгууль</h4>
         <div>
+          <CButton color="secondary" variant="outline" className="me-2" onClick={exportExcel}>⬇ Excel</CButton>
           <CButton color="secondary" variant="outline" className="me-2" onClick={()=>setSetModalOpen(true)}>⚙ Тохиргоо</CButton>
           <CButton color="danger" onClick={openCreate}>+ Зөрчил бүртгэх</CButton>
         </div>
@@ -158,6 +174,12 @@ export default function Violations() {
               <CFormSelect value={typeF} onChange={e=>setTypeF(e.target.value)}>
                 <option value="">Бүх төрөл</option>
                 {Object.entries(TYPE_LABEL).map(([k,l]) => <option key={k} value={k}>{l}</option>)}
+              </CFormSelect>
+            </CCol>
+            <CCol sm={3}>
+              <CFormSelect value={projectF} onChange={e=>setProjectF(e.target.value)}>
+                <option value="">Бүх төсөл</option>
+                {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
               </CFormSelect>
             </CCol>
           </CRow>

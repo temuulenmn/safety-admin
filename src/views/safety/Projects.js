@@ -10,6 +10,7 @@ import api from 'src/services/api'
 import { downloadCSV } from 'src/utils/exporters'
 
 const money = (n) => Number(n || 0).toLocaleString() + '₮'
+const scoreColor = (s) => s == null ? 'secondary' : s >= 90 ? 'success' : s >= 70 ? 'info' : s >= 50 ? 'warning' : 'danger'
 const STATUS = { planned:'info', active:'success', suspended:'warning', completed:'secondary' }
 const STATUS_LABEL = { planned:'Төлөвлөсөн', active:'Идэвхтэй', suspended:'Түр зогссон', completed:'Дууссан' }
 const EMPTY = { code:'', name:'', location:'', client_name:'', manager_id:'', status:'active',
@@ -19,6 +20,7 @@ export default function Projects() {
   const navigate = useNavigate()
   const [rows, setRows] = useState([])
   const [stats, setStats] = useState(null)
+  const [board, setBoard] = useState([])
   const [emps, setEmps] = useState([])
   const [loading, setLoading] = useState(false)
   const [statusF, setStatusF] = useState('')
@@ -34,6 +36,7 @@ export default function Projects() {
     api.getProjects({ status: statusF || undefined, search: search || undefined })
       .then(r => setRows(r.data || [])).finally(() => setLoading(false))
     api.getProjectStats().then(r => setStats(r.data))
+    api.getProjectLeaderboard().then(r => setBoard(r.data?.projects || []))
   }, [statusF, search])
 
   useEffect(() => { load() }, [load])
@@ -112,6 +115,41 @@ export default function Projects() {
             <div className="small text-medium-emphasis mt-2">
               Бүх төслийн нэгдсэн үзүүлэлт. Төсөл дээр дарж дэлгэрэнгүй рүү орно.
             </div>
+          </CCardBody>
+        </CCard>
+      )}
+
+      {/* Safety-score leaderboard */}
+      {board.length > 0 && (
+        <CCard className="mb-3">
+          <CCardHeader className="fw-semibold">Төслүүдийн аюулгүйн оноо</CCardHeader>
+          <CCardBody className="p-0">
+            <CTable hover responsive className="mb-0">
+              <CTableHead>
+                <CTableRow>
+                  <CTableHeaderCell style={{width:50}}>#</CTableHeaderCell>
+                  <CTableHeaderCell>Төсөл</CTableHeaderCell>
+                  <CTableHeaderCell className="text-end">Оноо</CTableHeaderCell>
+                  <CTableHeaderCell className="text-end">ХХХ нийцэл</CTableHeaderCell>
+                  <CTableHeaderCell className="text-end">Зөрчил</CTableHeaderCell>
+                  <CTableHeaderCell className="text-end">Ажилтан</CTableHeaderCell>
+                </CTableRow>
+              </CTableHead>
+              <CTableBody>
+                {board.map((p, idx) => (
+                  <CTableRow key={p.id} style={{cursor:'pointer'}} onClick={()=>navigate(`/projects/${p.id}`)}>
+                    <CTableDataCell>{idx + 1}</CTableDataCell>
+                    <CTableDataCell className="fw-semibold">{p.name}</CTableDataCell>
+                    <CTableDataCell className="text-end">
+                      <CBadge color={scoreColor(p.safety_score)}>{p.safety_score ?? '—'}</CBadge>
+                    </CTableDataCell>
+                    <CTableDataCell className="text-end">{p.ppe_compliance == null ? '—' : p.ppe_compliance + '%'}</CTableDataCell>
+                    <CTableDataCell className="text-end">{p.violations}</CTableDataCell>
+                    <CTableDataCell className="text-end">{p.workers}</CTableDataCell>
+                  </CTableRow>
+                ))}
+              </CTableBody>
+            </CTable>
           </CCardBody>
         </CCard>
       )}
