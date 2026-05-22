@@ -153,7 +153,6 @@ const api = {
   getAttendanceTrend:         (params)  => client.get('/dashboard/attendance-trend', { params }),
   getRfidDeniedReasons:       (params)  => client.get('/dashboard/rfid-denied-reasons', { params }),
   getTrainingCompliance:      ()        => client.get('/dashboard/training-compliance'),
-  getDashboardBilling:        ()        => client.get('/dashboard/billing'),
 
   // ── Marketplace (company-side) ────────────────────────────────────
   getMarketCatalog:        (params)     => client.get('/marketplace/items', { params }),
@@ -172,6 +171,7 @@ const api = {
   deleteTool:          (id)       => client.delete(`/tools/${id}`),
   getCheckouts:        (params)   => client.get('/tools/checkouts', { params }),
   checkoutTool:        (data)     => client.post('/tools/checkouts', data),
+  scanCheckoutTool:    (data)     => client.post('/tools/checkouts/scan', data),
   returnTool:          (id, data) => client.post(`/tools/checkouts/${id}/return`, data),
 
   // ── Violations & penalty fund ────────────────────────────────────
