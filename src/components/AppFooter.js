@@ -5,7 +5,7 @@ const AppFooter = () => {
   return (
     <CFooter className="px-4">
       <div>
-        2025 © KHANBAN group
+        2026 © KHANBAN TRADE AND DEVELOP LLC. All rights reserved. PATENTED.
       </div>
     </CFooter>
   )
