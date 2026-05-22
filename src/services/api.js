@@ -180,6 +180,8 @@ const api = {
   createViolation:     (data)     => client.post('/violations', data),
   updateViolation:     (id, data) => client.put(`/violations/${id}`, data),
   deleteViolation:     (id)       => client.delete(`/violations/${id}`),
+  getViolationSettings:()         => client.get('/violations/settings'),
+  updateViolationSettings:(data)  => client.put('/violations/settings', data),
   getFundBalance:      ()         => client.get('/violations/fund/balance'),
   getFundExpenses:     ()         => client.get('/violations/fund/expenses'),
   createFundExpense:   (data)     => client.post('/violations/fund/expenses', data),
@@ -224,6 +226,23 @@ const api = {
   cancelBrigadeContract:   (id)   => client.post(`/brigades/contracts/${id}/cancel`),
   recordBrigadePayment:(id, data) => client.post(`/brigades/contracts/${id}/payments`, data),
   deleteBrigadePayment:(pid)      => client.delete(`/brigades/contracts/payments/${pid}`),
+
+  // ── Danger zones (#1) ────────────────────────────────────────────
+  getDangerZones:      ()         => client.get('/safety/danger-zones'),
+  getDangerZonesLive:  ()         => client.get('/safety/danger-zones/live'),
+  createDangerZone:    (data)     => client.post('/safety/danger-zones', data),
+  updateDangerZone:    (id, data) => client.put(`/safety/danger-zones/${id}`, data),
+  deleteDangerZone:    (id)       => client.delete(`/safety/danger-zones/${id}`),
+
+  // ── Morning inspections (#4) ─────────────────────────────────────
+  getMorningToday:     ()         => client.get('/safety/morning-inspections/today'),
+  getMorningInspections:(params)  => client.get('/safety/morning-inspections', { params }),
+  createMorningInspection:(data)  => client.post('/safety/morning-inspections', data),
+  deleteMorningInspection:(id)    => client.delete(`/safety/morning-inspections/${id}`),
+
+  // ── Document library (#3, #7) — read only ────────────────────────
+  getDocuments:        (params)   => client.get('/safety/documents', { params }),
+  getDocWorkTypes:     ()         => client.get('/safety/documents/work-types'),
 
   // ── Worker clothing (RFID-tagged PPE) ────────────────────────────
   getWorkerClothing:   (params)   => client.get('/worker-clothing', { params }),

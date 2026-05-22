@@ -16,6 +16,9 @@ const Violations     = React.lazy(() => import('./views/safety/Violations'))
 const PenaltyFund    = React.lazy(() => import('./views/safety/PenaltyFund'))
 const Brigades       = React.lazy(() => import('./views/safety/Brigades'))
 const BrigadeContracts = React.lazy(() => import('./views/safety/BrigadeContracts'))
+const DangerZones    = React.lazy(() => import('./views/safety/DangerZones'))
+const MorningInspection = React.lazy(() => import('./views/safety/MorningInspection'))
+const Documents      = React.lazy(() => import('./views/safety/Documents'))
 const MarketCatalog  = React.lazy(() => import('./views/marketplace/Catalog'))
 const MarketOrders   = React.lazy(() => import('./views/marketplace/Orders'))
 
@@ -37,6 +40,9 @@ const routes = [
   { path: '/penalty-fund', name: 'Торгуулийн сан',   element: PenaltyFund },
   { path: '/brigades',          name: 'Бригадууд',        element: Brigades },
   { path: '/brigade-contracts', name: 'Бригадын гэрээ',   element: BrigadeContracts },
+  { path: '/danger-zones',      name: 'Аюултай бүс',      element: DangerZones },
+  { path: '/morning-inspection',name: 'Өглөөний шалгалт', element: MorningInspection },
+  { path: '/documents',         name: 'Норм дүрэм',       element: Documents },
   { path: '/marketplace',         name: 'Барааны каталог',   element: MarketCatalog },
   { path: '/marketplace/orders',  name: 'Миний захиалгууд',  element: MarketOrders },
 ]

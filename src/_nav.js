@@ -6,7 +6,7 @@ import {
   cilSpeedometer, cilPeople, cilBuilding, cilClock, cilCalendar,
   cilMoney, cilBadge, cilShieldAlt, cilEducation, cilLayers, cilLockLocked,
   cilCart, cilList, cilHandPointUp, cilWarning, cilBank,
-  cilGroup, cilFile,
+  cilGroup, cilFile, cilBurn, cilCheckCircle, cilBook,
 } from '@coreui/icons'
 
 const _nav = [
@@ -75,6 +75,24 @@ const _nav = [
     name: 'Хандалтын дүрэм',
     to: '/site-access',
     icon: <CIcon icon={cilLockLocked} customClassName="nav-icon" />,
+  },
+  {
+    component: CNavItem,
+    name: 'Аюултай бүс',
+    to: '/danger-zones',
+    icon: <CIcon icon={cilBurn} customClassName="nav-icon" />,
+  },
+  {
+    component: CNavItem,
+    name: 'Өглөөний шалгалт',
+    to: '/morning-inspection',
+    icon: <CIcon icon={cilCheckCircle} customClassName="nav-icon" />,
+  },
+  {
+    component: CNavItem,
+    name: 'Норм дүрэм / Заавар',
+    to: '/documents',
+    icon: <CIcon icon={cilBook} customClassName="nav-icon" />,
   },
   {
     component: CNavItem,

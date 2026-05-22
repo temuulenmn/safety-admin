@@ -33,6 +33,7 @@ export default function Violations() {
   const [form,     setForm]     = useState({ employee_id:'', violation_type:'clothing_missing', zone:'', description:'', missing_items:'', penalty_amount:20000 })
   const [saving,   setSaving]   = useState(false)
   const [detail,   setDetail]   = useState(null)
+  const [setModalOpen, setSetModalOpen] = useState(false)
 
   useEffect(() => {
     api.getEmployees({ status:'active', limit:500 }).then(r => setEmps(r.data || []))
@@ -89,7 +90,10 @@ export default function Violations() {
     <div className="p-3">
       <div className="d-flex justify-content-between align-items-center mb-3">
         <h4 className="fw-bold mb-0">Зөрчил / Торгууль</h4>
-        <CButton color="danger" onClick={openCreate}>+ Зөрчил бүртгэх</CButton>
+        <div>
+          <CButton color="secondary" variant="outline" className="me-2" onClick={()=>setSetModalOpen(true)}>⚙ Тохиргоо</CButton>
+          <CButton color="danger" onClick={openCreate}>+ Зөрчил бүртгэх</CButton>
+        </div>
       </div>
 
       {stats?.overall && (
@@ -240,6 +244,72 @@ export default function Violations() {
           <CButton color="secondary" onClick={()=>setDetail(null)}>Хаах</CButton>
         </CModalFooter>
       </CModal>
+
+      {setModalOpen && <SettingsModal onClose={()=>setSetModalOpen(false)} />}
     </div>
+  )
+}
+
+// ── Warning/penalty threshold settings (#2) ─────────────────────────
+function SettingsModal({ onClose }) {
+  const [form, setForm] = useState(null)
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    api.getViolationSettings().then(r => setForm(r.data))
+  }, [])
+
+  const save = async () => {
+    setSaving(true)
+    try {
+      await api.updateViolationSettings({
+        violation_warning_limit: Number(form.violation_warning_limit),
+        penalty_amount: Number(form.penalty_amount),
+        warning_reset_days: Number(form.warning_reset_days),
+      })
+      onClose()
+    } finally { setSaving(false) }
+  }
+
+  return (
+    <CModal visible={true} onClose={onClose} backdrop="static">
+      <CModalHeader><CModalTitle>Сануулга / Торгуулийн тохиргоо</CModalTitle></CModalHeader>
+      <CModalBody>
+        {!form ? <div className="text-center py-3"><CSpinner /></div> : (
+          <>
+            <div className="alert alert-info py-2 small">
+              ⓘ Ажилтныг <strong>{form.violation_warning_limit}</strong> удаа сануулаад,
+              дараагийн ({Number(form.violation_warning_limit)+1} дэх) зөрчилд автоматаар
+              <strong> {Number(form.penalty_amount).toLocaleString()}₮</strong> торгууль ноогдуулна.
+            </div>
+            <CForm><CRow className="g-3">
+              <CCol sm={12}>
+                <CFormLabel>Сануулгын тоо (X удаа)</CFormLabel>
+                <CFormInput type="number" min="0" value={form.violation_warning_limit}
+                  onChange={e=>setForm(f=>({...f,violation_warning_limit:e.target.value}))} />
+                <div className="form-text small">Энэ тооноос хэтэрвэл торгууль эхэлнэ</div>
+              </CCol>
+              <CCol sm={12}>
+                <CFormLabel>Торгуулийн дүн (₮)</CFormLabel>
+                <CFormInput type="number" min="0" value={form.penalty_amount}
+                  onChange={e=>setForm(f=>({...f,penalty_amount:e.target.value}))} />
+              </CCol>
+              <CCol sm={12}>
+                <CFormLabel>Сануулга тэглэх хугацаа (хоног)</CFormLabel>
+                <CFormInput type="number" min="1" value={form.warning_reset_days}
+                  onChange={e=>setForm(f=>({...f,warning_reset_days:e.target.value}))} />
+                <div className="form-text small">Энэ хоногийн дотор тоолно (rolling window)</div>
+              </CCol>
+            </CRow></CForm>
+          </>
+        )}
+      </CModalBody>
+      <CModalFooter>
+        <CButton color="secondary" onClick={onClose}>Болих</CButton>
+        <CButton color="primary" onClick={save} disabled={saving || !form}>
+          {saving ? <CSpinner size="sm" /> : 'Хадгалах'}
+        </CButton>
+      </CModalFooter>
+    </CModal>
   )
 }
