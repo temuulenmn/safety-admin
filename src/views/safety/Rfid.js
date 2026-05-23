@@ -7,12 +7,14 @@ import {
 } from '@coreui/react'
 import { AgGridReact } from 'ag-grid-react'
 import { useGridTheme, defaultColDef, makeServerDatasource } from 'src/utils/agGrid'
+import { useSelector } from 'react-redux'
 import api from 'src/services/api'
 import dayjs from 'dayjs'
 
 export default function Rfid() {
   const scansGridRef = useRef()
   const gridTheme = useGridTheme()
+  const currentProjectId = useSelector(s => s.currentProjectId)
   const [tab,     setTab]     = useState('readers')
   const [readers, setReaders] = useState([])
   const [cards,   setCards]   = useState([])
@@ -42,10 +44,10 @@ export default function Rfid() {
       .then(r => setStats(r.data))
 
     const ds = makeServerDatasource(({ page, limit, sort_by, sort_dir }) =>
-      api.getRfidScans({ page, limit, date_from: dateFrom, date_to: dateTo, sort_by, sort_dir })
+      api.getRfidScans({ page, limit, date_from: dateFrom, date_to: dateTo, project_id: currentProjectId || undefined, sort_by, sort_dir })
     )
     scansGridRef.current?.api?.setGridOption('datasource', ds)
-  }, [dateFrom, dateTo])
+  }, [dateFrom, dateTo, currentProjectId])
 
   useEffect(() => { if (tab === 'scans') refreshScans() }, [tab, refreshScans])
 

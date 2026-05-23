@@ -228,8 +228,8 @@ const api = {
   deleteBrigadePayment:(pid)      => client.delete(`/brigades/contracts/payments/${pid}`),
 
   // ── Danger zones (#1) ────────────────────────────────────────────
-  getDangerZones:      ()         => client.get('/safety/danger-zones'),
-  getDangerZonesLive:  ()         => client.get('/safety/danger-zones/live'),
+  getDangerZones:      (params)   => client.get('/safety/danger-zones', { params }),
+  getDangerZonesLive:  (params)   => client.get('/safety/danger-zones/live', { params }),
   createDangerZone:    (data)     => client.post('/safety/danger-zones', data),
   updateDangerZone:    (id, data) => client.put(`/safety/danger-zones/${id}`, data),
   deleteDangerZone:    (id)       => client.delete(`/safety/danger-zones/${id}`),

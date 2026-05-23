@@ -5,10 +5,12 @@ import {
   CTable, CTableHead, CTableRow, CTableHeaderCell, CTableBody, CTableDataCell,
   CModal, CModalHeader, CModalTitle, CModalBody, CModalFooter, CForm,
 } from '@coreui/react'
+import { useSelector } from 'react-redux'
 import api from 'src/services/api'
 import dayjs from 'dayjs'
 
 export default function Ppe() {
+  const currentProjectId = useSelector(s => s.currentProjectId)
   const [tab,        setTab]        = useState('items')
   const [categories, setCategories] = useState([])
   const [items,      setItems]      = useState([])
@@ -28,17 +30,17 @@ export default function Ppe() {
     loadItems()
   }, [])
 
-  useEffect(() => { if (tab === 'checks') loadChecks() }, [tab, dateFrom, dateTo])
+  useEffect(() => { if (tab === 'checks') loadChecks() }, [tab, dateFrom, dateTo, currentProjectId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadCategories = () => api.getPpeCategories().then(r => setCategories(r.data || []))
   const loadItems      = () => api.getPpeItems().then(r => setItems(r.data || []))
   const loadChecks     = useCallback(() => {
     setLoading(true)
     Promise.all([
-      api.getPpeChecks({ date_from: dateFrom, date_to: dateTo, limit: 500 }),
+      api.getPpeChecks({ date_from: dateFrom, date_to: dateTo, project_id: currentProjectId || undefined, limit: 500 }),
       api.getPpeCheckStats({ date_from: dateFrom, date_to: dateTo }),
     ]).then(([c, s]) => { setChecks(c.data || []); setStats(s.data) }).finally(() => setLoading(false))
-  }, [dateFrom, dateTo])
+  }, [dateFrom, dateTo, currentProjectId])
 
   const openCategory = (r) => {
     setEditing(r?.id || null)

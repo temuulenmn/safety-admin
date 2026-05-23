@@ -6,6 +6,7 @@ import {
   CTable, CTableHead, CTableRow, CTableHeaderCell, CTableBody, CTableDataCell,
   CNav, CNavItem, CNavLink, CTabContent, CTabPane,
 } from '@coreui/react'
+import { useSelector } from 'react-redux'
 import api from 'src/services/api'
 import dayjs from 'dayjs'
 
@@ -34,17 +35,18 @@ export default function DangerZones() {
 
 // ── Live monitoring ─────────────────────────────────────────────────
 function LiveTab() {
+  const currentProjectId = useSelector(s => s.currentProjectId)
   const [zones, setZones] = useState([])
   const [loading, setLoading] = useState(true)
   const load = () => {
     setLoading(true)
-    api.getDangerZonesLive().then(r => setZones(r.data || [])).finally(()=>setLoading(false))
+    api.getDangerZonesLive({ project_id: currentProjectId || undefined }).then(r => setZones(r.data || [])).finally(()=>setLoading(false))
   }
   useEffect(() => {
     load()
     const t = setInterval(load, 30000)  // auto-refresh every 30s
     return () => clearInterval(t)
-  }, [])
+  }, [currentProjectId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (loading) return <div className="text-center py-4"><CSpinner /></div>
 
@@ -103,11 +105,12 @@ function ManageTab() {
   const [modal,   setModal]   = useState(false)
   const [editing, setEditing] = useState(null)
 
+  const currentProjectId = useSelector(s => s.currentProjectId)
   const load = () => {
     setLoading(true)
-    api.getDangerZones().then(r => setZones(r.data || [])).finally(()=>setLoading(false))
+    api.getDangerZones({ project_id: currentProjectId || undefined }).then(r => setZones(r.data || [])).finally(()=>setLoading(false))
   }
-  useEffect(load, [])
+  useEffect(load, [currentProjectId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const remove = async (id) => {
     if (!window.confirm('Устгах уу?')) return
