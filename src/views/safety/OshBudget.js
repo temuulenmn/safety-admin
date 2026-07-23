@@ -1,9 +1,10 @@
 import React, { useEffect, useState, useCallback } from 'react'
+import { useSelector } from 'react-redux'
 import {
   Row, Col, Card, Table, Tag, Button, Modal, Form, Input, Select, DatePicker,
   InputNumber, Space, Statistic, Alert, Popconfirm, Progress, Tabs, message,
 } from 'antd'
-import { PlusOutlined, SettingOutlined, DollarOutlined } from '@ant-design/icons'
+import { PlusOutlined, SettingOutlined, CalculatorOutlined } from '@ant-design/icons'
 import api from 'src/services/api'
 import dayjs from 'dayjs'
 
@@ -20,6 +21,7 @@ const CAT_COLOR = {
 const fmt = n => Number(n || 0).toLocaleString('mn-MN') + '₮'
 
 export default function OshBudget() {
+  const currentProjectId = useSelector(s => s.currentProjectId)
   const [tab, setTab] = useState('summary')
   const [year, setYear] = useState(dayjs().year())
   const [summary, setSummary] = useState(null)
@@ -34,15 +36,17 @@ export default function OshBudget() {
   const [baseModal, setBaseModal] = useState(false)
   const [baseForm]  = Form.useForm()
   const [baseSaving,setBaseSaving]= useState(false)
+  const [suggesting,setSuggesting]= useState(false)
+  const [suggestion,setSuggestion]= useState(null)
 
   const load = useCallback(() => {
     setLoading(true)
     Promise.all([
       api.getOshBudgetSummary({ year }),
-      api.getOshExpenses({ year, category: catF }),
+      api.getOshExpenses({ year, category: catF, project_id: currentProjectId }),
     ]).then(([s, e]) => { setSummary(s.data); setExpenses(e.data || []) })
       .finally(() => setLoading(false))
-  }, [year, catF])
+  }, [year, catF, currentProjectId])
   useEffect(load, [load])
 
   const openExpense = () => {
@@ -71,7 +75,19 @@ export default function OshBudget() {
       production_cost: summary?.baseline?.production_cost ? Number(summary.baseline.production_cost) : null,
       notes: summary?.baseline?.notes || '',
     })
+    setSuggestion(null)
     setBaseModal(true)
+  }
+  const fetchSuggestion = async () => {
+    setSuggesting(true)
+    try {
+      const r = await api.suggestOshBaseline({ year: baseForm.getFieldValue('year') || year })
+      setSuggestion(r.data)
+    } finally { setSuggesting(false) }
+  }
+  const applySuggestion = (amt) => {
+    baseForm.setFieldsValue({ production_cost: amt })
+    message.success(`${Number(amt).toLocaleString()}₮ бөглөгдлөө`)
   }
   const saveBaseline = async () => {
     try {
@@ -224,22 +240,58 @@ export default function OshBudget() {
       </Modal>
 
       <Modal open={baseModal} onOk={saveBaseline} onCancel={() => setBaseModal(false)}
-        title={`${year} оны төсвийн суурь`} confirmLoading={baseSaving}
+        title={`${year} оны төсвийн суурь`} confirmLoading={baseSaving} width={640}
         okText="Хадгалах" cancelText="Болих" destroyOnClose>
         <Form form={baseForm} layout="vertical" requiredMark={false}>
-          <Form.Item name="year" label="Жил" rules={[{ required: true }]}>
-            <InputNumber style={{ width: '100%' }} min={2020} max={2100} />
-          </Form.Item>
+          <Row gutter={12}>
+            <Col span={12}>
+              <Form.Item name="year" label="Жил" rules={[{ required: true }]}>
+                <InputNumber style={{ width: '100%' }} min={2020} max={2100} />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="required_pct" label="Шаардлагатай хувь %">
+                <Select options={[
+                  { value: 1.5, label: '1.5% — аж ахуйн нэгж' },
+                  { value: 0.5, label: '0.5% — төсвийн байгууллага' },
+                ]} />
+              </Form.Item>
+            </Col>
+          </Row>
           <Form.Item name="production_cost" label="Үйлдвэрлэлийн жилийн зардал (₮)" rules={[{ required: true }]}
             help="Тухайн жилийн үйлдвэрлэл, үйлчилгээний нийт зардлын хүлээгдэж буй дүн">
             <InputNumber style={{ width: '100%' }} min={0} />
           </Form.Item>
-          <Form.Item name="required_pct" label="Шаардлагатай хувь %">
-            <Select options={[
-              { value: 1.5, label: '1.5% — аж ахуйн нэгж' },
-              { value: 0.5, label: '0.5% — төсвийн байгууллага' },
-            ]} />
-          </Form.Item>
+
+          <Card size="small" style={{ marginBottom: 12, background: '#fafafa' }}>
+            <Space direction="vertical" style={{ width: '100%' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: 12, color: '#8c8c8c' }}>Одоо байгаа өгөгдлөөс автомат тооцоолох:</span>
+                <Button size="small" icon={<CalculatorOutlined />} loading={suggesting} onClick={fetchSuggestion}>
+                  Тооцоолох
+                </Button>
+              </div>
+              {suggestion && (
+                <>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span>Төслийн budget нийлбэр ({suggestion.project_count} төсөл):</span>
+                    <Space>
+                      <strong>{fmt(suggestion.project_budget_sum)}</strong>
+                      <Button size="small" type="link" onClick={() => applySuggestion(suggestion.project_budget_sum)}>Ашиглах</Button>
+                    </Space>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span>Бригадын гэрээний нийлбэр:</span>
+                    <Space>
+                      <strong>{fmt(suggestion.brigade_contract_sum)}</strong>
+                      <Button size="small" type="link" onClick={() => applySuggestion(suggestion.brigade_contract_sum)}>Ашиглах</Button>
+                    </Space>
+                  </div>
+                </>
+              )}
+            </Space>
+          </Card>
+
           <Form.Item name="notes" label="Тэмдэглэл"><Input.TextArea rows={2} /></Form.Item>
         </Form>
       </Modal>

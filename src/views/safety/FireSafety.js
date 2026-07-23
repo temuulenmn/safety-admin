@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react'
+import { useSelector } from 'react-redux'
 import {
   Row, Col, Card, Table, Tag, Button, Modal, Form, Input, Select, DatePicker,
   Space, Statistic, Alert, Popconfirm, Tabs, Checkbox, message,
@@ -19,6 +20,7 @@ const TYPE_LABEL = {
 }
 
 export default function FireSafety() {
+  const currentProjectId = useSelector(s => s.currentProjectId)
   const [tab,    setTab]    = useState('equipment')
   const [rows,   setRows]   = useState([])
   const [inspections, setInspections] = useState([])
@@ -40,13 +42,17 @@ export default function FireSafety() {
   const load = useCallback(() => {
     setLoading(true)
     Promise.all([
-      api.getFireEquipment({ equipment_type: typeF, needs_inspection: needsInsp ? 'true' : undefined }),
+      api.getFireEquipment({
+        equipment_type: typeF,
+        needs_inspection: needsInsp ? 'true' : undefined,
+        project_id: currentProjectId,
+      }),
       api.getFireStats(),
       api.getFireInspections(),
     ]).then(([r, s, i]) => {
       setRows(r.data || []); setStats(s.data); setInspections(i.data || [])
     }).finally(() => setLoading(false))
-  }, [typeF, needsInsp])
+  }, [typeF, needsInsp, currentProjectId])
   useEffect(load, [load])
 
   const openCreate = () => {

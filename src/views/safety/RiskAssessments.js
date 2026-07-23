@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react'
+import { useSelector } from 'react-redux'
 import {
   Row, Col, Card, Table, Tag, Button, Modal, Form, Input, Select, DatePicker,
   InputNumber, Space, Statistic, Alert, Popconfirm, Descriptions, message,
@@ -17,6 +18,7 @@ const scoreColor = (s) => s == null ? '#8c8c8c' : s >= 15 ? '#cf1322' : s >= 8 ?
 const scoreLabel = (s) => s == null ? '—' : s >= 15 ? 'Өндөр' : s >= 8 ? 'Дунд' : 'Бага'
 
 export default function RiskAssessments() {
+  const currentProjectId = useSelector(s => s.currentProjectId)
   const [rows,    setRows]    = useState([])
   const [zones,   setZones]   = useState([])
   const [stats,   setStats]   = useState(null)
@@ -33,11 +35,11 @@ export default function RiskAssessments() {
   const load = useCallback(() => {
     setLoading(true)
     Promise.all([
-      api.getRiskAssessments({ status: statusF, min_score: minScore }),
+      api.getRiskAssessments({ status: statusF, min_score: minScore, project_id: currentProjectId }),
       api.getRiskStats(),
     ]).then(([r, s]) => { setRows(r.data || []); setStats(s.data) })
       .finally(() => setLoading(false))
-  }, [statusF, minScore])
+  }, [statusF, minScore, currentProjectId])
   useEffect(() => { api.getDangerZones().then(r => setZones(r.data || [])) }, [])
   useEffect(load, [load])
 

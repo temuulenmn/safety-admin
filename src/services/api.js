@@ -342,6 +342,7 @@ const api = {
   // ── OSH Budget (1.5% rule) ───────────────────────────────────────
   getOshBudgetSummary: (params)   => client.get('/osh-budget/summary', { params }),
   getOshBaseline:      (params)   => client.get('/osh-budget/baseline', { params }),
+  suggestOshBaseline:  (params)   => client.get('/osh-budget/baseline/suggest', { params }),
   setOshBaseline:      (data)     => client.put('/osh-budget/baseline', data),
   getOshExpenses:      (params)   => client.get('/osh-budget/expenses', { params }),
   createOshExpense:    (data)     => client.post('/osh-budget/expenses', data),
@@ -350,6 +351,17 @@ const api = {
   // ── Training compliance ──────────────────────────────────────────
   getTrainingMatrix:   (params)   => client.get('/training-compliance/matrix', { params }),
   getTrainingComplianceSummary: (params) => client.get('/training-compliance/summary', { params }),
+
+  // ── Notifications ────────────────────────────────────────────────
+  getNotificationEvents: ()         => client.get('/notifications/events'),
+  getRecipients:         ()         => client.get('/notifications/recipients'),
+  createRecipient:       (data)     => client.post('/notifications/recipients', data),
+  updateRecipient:       (id, data) => client.put(`/notifications/recipients/${id}`, data),
+  removeRecipient:       (id)       => client.delete(`/notifications/recipients/${id}`),
+  setRecipientSubs:      (id, data) => client.put(`/notifications/recipients/${id}/subs`, data),
+  getNotificationLog:    (params)   => client.get('/notifications/log', { params }),
+  testSendNotification:  (data)     => client.post('/notifications/test', data),
+  runReportManually:     (kind)     => client.post(`/notifications/run/${kind}`),
 }
 
 export default api

@@ -36,6 +36,7 @@ const DetoxRations   = React.lazy(() => import('./views/safety/DetoxRations'))
 const ToolInspections = React.lazy(() => import('./views/safety/ToolInspections'))
 const OshBudget      = React.lazy(() => import('./views/safety/OshBudget'))
 const TrainingCompliance = React.lazy(() => import('./views/safety/TrainingCompliance'))
+const Notifications  = React.lazy(() => import('./views/safety/Notifications'))
 
 const routes = [
   { path: '/',             exact: true, name: 'Нүүр' },
@@ -75,6 +76,7 @@ const routes = [
   { path: '/tool-inspections',    name: 'Багажийн шалгалт',    element: ToolInspections },
   { path: '/osh-budget',          name: '1.5% төсөв',           element: OshBudget },
   { path: '/training-compliance', name: 'Сургалтын нийцэл',   element: TrainingCompliance },
+  { path: '/notifications',       name: 'Мэдэгдэл',              element: Notifications },
 ]
 
 export default routes

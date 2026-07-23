@@ -48,6 +48,7 @@ const nav = [
   { to: '/tool-inspections',    label: 'Багажийн шалгалт',    icon: 'wrench' },
   { to: '/osh-budget',          label: '1.5% төсөв',           icon: 'bank' },
   { to: '/training-compliance', label: 'Сургалтын нийцэл',    icon: 'book' },
+  { to: '/notifications',       label: 'Мэдэгдэл (Email/SMS)', icon: 'file' },
 
   { section: 'БРИГАД' },
   { to: '/brigades',         label: 'Бригадууд',         icon: 'group' },
