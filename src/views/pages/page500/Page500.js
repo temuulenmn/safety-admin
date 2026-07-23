@@ -1,41 +1,13 @@
 import React from 'react'
-import {
-  CButton,
-  CCol,
-  CContainer,
-  CFormInput,
-  CInputGroup,
-  CInputGroupText,
-  CRow,
-} from '@coreui/react'
-import CIcon from '@coreui/icons-react'
-import { cilMagnifyingGlass } from '@coreui/icons'
+import { Result, Button } from 'antd'
+import { useNavigate } from 'react-router-dom'
 
-const Page500 = () => {
+export default function Page500() {
+  const navigate = useNavigate()
   return (
-    <div className="bg-body-tertiary min-vh-100 d-flex flex-row align-items-center">
-      <CContainer>
-        <CRow className="justify-content-center">
-          <CCol md={6}>
-            <span className="clearfix">
-              <h1 className="float-start display-3 me-4">500</h1>
-              <h4 className="pt-3">Houston, we have a problem!</h4>
-              <p className="text-body-secondary float-start">
-                The page you are looking for is temporarily unavailable.
-              </p>
-            </span>
-            <CInputGroup className="input-prepend">
-              <CInputGroupText>
-                <CIcon icon={cilMagnifyingGlass} />
-              </CInputGroupText>
-              <CFormInput type="text" placeholder="What are you looking for?" />
-              <CButton color="info">Search</CButton>
-            </CInputGroup>
-          </CCol>
-        </CRow>
-      </CContainer>
+    <div style={{ minHeight: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <Result status="500" title="500" subTitle="Серверийн алдаа. Түр хүлээгээд дахин оролдоно уу."
+        extra={<Button type="primary" onClick={() => navigate('/dashboard')}>Нүүр рүү буцах</Button>} />
     </div>
   )
 }
-
-export default Page500

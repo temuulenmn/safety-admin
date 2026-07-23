@@ -1,30 +1,28 @@
 import React, { useEffect, useState } from 'react'
 import {
-  CButton, CCard, CCardBody, CCardHeader, CBadge, CSpinner, CRow, CCol,
-  CTable, CTableHead, CTableRow, CTableHeaderCell, CTableBody, CTableDataCell,
-  CModal, CModalHeader, CModalTitle, CModalBody, CModalFooter,
-  CForm, CFormInput, CFormLabel,
-} from '@coreui/react'
+  Row, Col, Card, Table, Tag, Button, Modal, Form, InputNumber, DatePicker,
+  Space, Empty, Spin, Popconfirm, Input, message,
+} from 'antd'
+import { PlusOutlined, DownloadOutlined, ReloadOutlined, CheckOutlined } from '@ant-design/icons'
 import api from 'src/services/api'
 import { downloadCSV } from 'src/utils/exporters'
 import dayjs from 'dayjs'
 
-const STATUS_COLOR = { draft:'secondary', approved:'primary', paid:'success' }
-const STATUS_LABEL = { draft:'Ноорог', approved:'Батлагдсан', paid:'Төлсөн' }
-
+const STATUS_COLOR = { draft: 'default', approved: 'processing', paid: 'success' }
+const STATUS_LABEL = { draft: 'Ноорог', approved: 'Батлагдсан', paid: 'Төлсөн' }
 const fmt = (v) => Number(v || 0).toLocaleString('mn-MN')
 
 export default function Payroll() {
-  const [periods,  setPeriods]  = useState([])
-  const [loading,  setLoading]  = useState(true)
-  const [selected, setSelected] = useState(null)
-  const [entries,  setEntries]  = useState([])
-  const [summary,  setSummary]  = useState(null)
-  const [entLoad,  setEntLoad]  = useState(false)
-  const [modal,    setModal]    = useState(false)
-  const [form,     setForm]     = useState({ year: dayjs().year(), month: dayjs().month()+1, start_date:'', end_date:'' })
-  const [saving,   setSaving]   = useState(false)
-  const [approving,setApproving]= useState(null)
+  const [periods,   setPeriods]   = useState([])
+  const [loading,   setLoading]   = useState(true)
+  const [selected,  setSelected]  = useState(null)
+  const [entries,   setEntries]   = useState([])
+  const [summary,   setSummary]   = useState(null)
+  const [entLoad,   setEntLoad]   = useState(false)
+  const [modal,     setModal]     = useState(false)
+  const [form]      = Form.useForm()
+  const [saving,    setSaving]    = useState(false)
+  const [approving, setApproving] = useState(null)
   const [generating,setGenerating]= useState(false)
 
   const load = () => {
@@ -39,268 +37,215 @@ export default function Payroll() {
     setEntries(e.data || []); setSummary(s.data || null); setEntLoad(false)
   }
 
+  const openCreate = () => {
+    form.resetFields()
+    form.setFieldsValue({ year: dayjs().year(), month: dayjs().month() + 1 })
+    setModal(true)
+  }
   const createPeriod = async () => {
-    setSaving(true)
-    try { await api.createPayrollPeriod(form); setModal(false); load() }
+    try {
+      const v = await form.validateFields()
+      setSaving(true)
+      await api.createPayrollPeriod({
+        year: v.year, month: v.month,
+        start_date: v.start_date.format('YYYY-MM-DD'),
+        end_date:   v.end_date.format('YYYY-MM-DD'),
+      })
+      setModal(false); load(); message.success('Хугацаа үүсгэгдлээ')
+    } catch (e) { if (e?.errorFields) return }
     finally { setSaving(false) }
   }
 
   const approve = async (id) => {
-    if (!window.confirm('Цалинг батлах уу?')) return
     setApproving(id)
-    try { await api.approvePeriod(id); load(); if (selected?.id === id) openPeriod({ ...selected, status:'approved' }) }
-    finally { setApproving(null) }
+    try {
+      await api.approvePeriod(id); load()
+      if (selected?.id === id) openPeriod({ ...selected, status: 'approved' })
+      message.success('Батлагдлаа')
+    } finally { setApproving(null) }
   }
 
   const generate = async () => {
     if (!selected) return
-    if (!window.confirm('Бүх идэвхтэй ажилтны цалинг автоматаар тооцох уу?\n(Үндсэн цалин × ажилласан өдөр + илүү цаг − НДШ/ХАОАТ − торгууль)')) return
     setGenerating(true)
-    try { await api.generatePayroll(selected.id); load(); openPeriod(selected) }
+    try { await api.generatePayroll(selected.id); load(); openPeriod(selected); message.success('Тооцоолол дууслаа') }
     finally { setGenerating(false) }
   }
 
   const exportExcel = () => {
     if (!selected) return
-    downloadCSV(`tsalin-${selected.year}-${String(selected.month).padStart(2,'0')}`,
+    downloadCSV(`tsalin-${selected.year}-${String(selected.month).padStart(2, '0')}`,
       ['Код','Нэр','Хэлтэс','Үндсэн','Илүү цаг','Урамшуулал','ААНТТШ','НДШХ','Бусад суутгал','Ажилласан өдөр','Цэвэр'],
-      entries.map(e => [e.emp_code, e.full_name, e.department_name||'',
-        e.base_salary||0, e.overtime_pay||0, e.bonus||0,
-        e.deduction_tax||0, e.deduction_social||0, e.deduction_other||0, e.worked_days||0,
-        e.net_salary ?? (Number(e.base_salary||0)+Number(e.overtime_pay||0)+Number(e.bonus||0)
-          -Number(e.deduction_tax||0)-Number(e.deduction_social||0)-Number(e.deduction_other||0))]))
+      entries.map(e => [e.emp_code, e.full_name, e.department_name || '',
+        e.base_salary || 0, e.overtime_pay || 0, e.bonus || 0,
+        e.deduction_tax || 0, e.deduction_social || 0, e.deduction_other || 0, e.worked_days || 0,
+        e.net_salary ?? (Number(e.base_salary || 0) + Number(e.overtime_pay || 0) + Number(e.bonus || 0)
+          - Number(e.deduction_tax || 0) - Number(e.deduction_social || 0) - Number(e.deduction_other || 0))]))
   }
 
   return (
-    <div className="p-3">
-      <div className="d-flex justify-content-between align-items-center mb-3">
-        <h4 className="fw-bold mb-0">Цалин</h4>
-        <CButton color="primary" onClick={() => setModal(true)}>+ Хугацаа үүсгэх</CButton>
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <h4 style={{ margin: 0, fontWeight: 700 }}>Цалин</h4>
+        <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>Хугацаа үүсгэх</Button>
       </div>
 
-      <CRow className="g-3">
-        {/* Periods list */}
-        <CCol lg={4}>
-          <CCard>
-            <CCardHeader className="fw-semibold">Цалингийн хугацаанууд</CCardHeader>
-            <CCardBody className="p-0">
-              {loading ? <div className="py-4 text-center"><CSpinner /></div> : (
-                <CTable hover>
-                  <CTableBody>
-                    {periods.map(p => (
-                      <CTableRow key={p.id} active={selected?.id === p.id}
-                        onClick={() => openPeriod(p)} style={{ cursor:'pointer' }}>
-                        <CTableDataCell>
-                          <div className="fw-semibold">{p.year} / {String(p.month).padStart(2,'0')}</div>
-                          <small className="text-medium-emphasis">{p.start_date?.slice(0,10)} – {p.end_date?.slice(0,10)}</small>
-                        </CTableDataCell>
-                        <CTableDataCell className="text-end">
-                          <CBadge color={STATUS_COLOR[p.status]}>{STATUS_LABEL[p.status]}</CBadge>
-                          <div className="small text-medium-emphasis">{p.entry_count} ажилтан</div>
-                        </CTableDataCell>
-                      </CTableRow>
-                    ))}
-                  </CTableBody>
-                </CTable>
-              )}
-            </CCardBody>
-          </CCard>
-        </CCol>
+      <Row gutter={[16, 16]}>
+        <Col lg={8} xs={24}>
+          <Card title="Цалингийн хугацаанууд">
+            {loading ? <div style={{ textAlign: 'center', padding: 30 }}><Spin /></div> : (
+              periods.length === 0 ? <Empty description="Хугацаа алга" /> :
+              periods.map(p => (
+                <div key={p.id} onClick={() => openPeriod(p)}
+                  style={{
+                    padding: 12, borderBottom: '1px solid #f0f0f0', cursor: 'pointer',
+                    background: selected?.id === p.id ? '#e6f7ff' : 'transparent',
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  }}>
+                  <div>
+                    <div style={{ fontWeight: 600 }}>{p.year} / {String(p.month).padStart(2, '0')}</div>
+                    <div style={{ color: '#8c8c8c', fontSize: 11 }}>
+                      {p.start_date?.slice(0, 10)} – {p.end_date?.slice(0, 10)}
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <Tag color={STATUS_COLOR[p.status]}>{STATUS_LABEL[p.status]}</Tag>
+                    <div style={{ color: '#8c8c8c', fontSize: 11 }}>{p.entry_count} ажилтан</div>
+                  </div>
+                </div>
+              ))
+            )}
+          </Card>
+        </Col>
 
-        {/* Entries */}
-        <CCol lg={8}>
+        <Col lg={16} xs={24}>
           {selected ? (
-            <CCard>
-              <CCardHeader className="d-flex justify-content-between align-items-center">
-                <span className="fw-semibold">{selected.year} / {String(selected.month).padStart(2,'0')} — дэлгэрэнгүй</span>
-                <div>
-                  <CButton size="sm" color="secondary" variant="outline" className="me-2" onClick={exportExcel}>⬇ Excel</CButton>
+            <Card title={`${selected.year} / ${String(selected.month).padStart(2, '0')} — дэлгэрэнгүй`}
+              extra={
+                <Space>
+                  <Button size="small" icon={<DownloadOutlined />} onClick={exportExcel}>Excel</Button>
                   {selected.status === 'draft' && (
                     <>
-                      <CButton size="sm" color="info" variant="outline" className="me-2"
-                        onClick={generate} disabled={generating}>
-                        {generating ? <CSpinner size="sm" /> : '⟲ Цалин тооцох'}
-                      </CButton>
-                      <CButton size="sm" color="success" onClick={() => approve(selected.id)} disabled={approving===selected.id}>
-                        {approving===selected.id ? <CSpinner size="sm" /> : 'Батлах'}
-                      </CButton>
+                      <Popconfirm title="Бүх идэвхтэй ажилтны цалинг автоматаар тооцох уу?" onConfirm={generate} okText="Тийм" cancelText="Үгүй">
+                        <Button size="small" icon={<ReloadOutlined />} loading={generating}>Цалин тооцох</Button>
+                      </Popconfirm>
+                      <Popconfirm title="Цалинг батлах уу?" onConfirm={() => approve(selected.id)} okText="Тийм" cancelText="Үгүй">
+                        <Button size="small" type="primary" icon={<CheckOutlined />}
+                          loading={approving === selected.id}>Батлах</Button>
+                      </Popconfirm>
                     </>
                   )}
-                </div>
-              </CCardHeader>
+                </Space>
+              }>
               {summary && (
-                <div className="p-3 bg-light border-bottom">
-                  <CRow className="g-2 text-center">
-                    {[
-                      ['Нийт ажилтан', summary.employee_count],
-                      ['Үндсэн цалин', fmt(summary.total_base)+'₮'],
-                      ['Илүү цаг', fmt(summary.total_overtime)+'₮'],
-                      ['Урамшуулал', fmt(summary.total_bonus)+'₮'],
-                      ['НДШХ', fmt(summary.total_social)+'₮'],
-                      ['ААНТТШ', fmt(summary.total_tax)+'₮'],
-                      ['Нийт цэвэр', fmt(summary.total_net)+'₮'],
-                    ].map(([l,v]) => (
-                      <CCol key={l} xs={6} sm={3}>
-                        <div className="text-medium-emphasis small">{l}</div>
-                        <div className="fw-bold">{v}</div>
-                      </CCol>
-                    ))}
-                  </CRow>
-                </div>
+                <Row gutter={[8, 8]} style={{ marginBottom: 16, padding: 12, background: '#fafafa', borderRadius: 6 }}>
+                  {[
+                    ['Нийт ажилтан', summary.employee_count],
+                    ['Үндсэн цалин', fmt(summary.total_base) + '₮'],
+                    ['Илүү цаг', fmt(summary.total_overtime) + '₮'],
+                    ['Урамшуулал', fmt(summary.total_bonus) + '₮'],
+                    ['НДШХ', fmt(summary.total_social) + '₮'],
+                    ['ААНТТШ', fmt(summary.total_tax) + '₮'],
+                    ['Цэвэр', fmt(summary.total_net) + '₮'],
+                  ].map(([l, v]) => (
+                    <Col key={l} xs={12} sm={6} md={3} style={{ textAlign: 'center' }}>
+                      <div style={{ color: '#8c8c8c', fontSize: 11 }}>{l}</div>
+                      <div style={{ fontWeight: 700 }}>{v}</div>
+                    </Col>
+                  ))}
+                </Row>
               )}
-              <CCardBody className="p-0">
-                {entLoad ? <div className="py-4 text-center"><CSpinner /></div> : (
-                  <PayrollEntriesTable entries={entries}
-                    canEdit={selected.status === 'draft'}
-                    onUpdated={() => openPeriod(selected)} period={selected} />
-                )}
-              </CCardBody>
-            </CCard>
+              {entLoad ? <div style={{ textAlign: 'center', padding: 30 }}><Spin /></div> :
+                <PayrollEntriesTable entries={entries} canEdit={selected.status === 'draft'}
+                  onUpdated={() => openPeriod(selected)} period={selected} />}
+            </Card>
           ) : (
-            <div className="text-center text-medium-emphasis py-5">Хугацаа сонгоно уу</div>
+            <Empty description="Хугацаа сонгоно уу" style={{ padding: 60 }} />
           )}
-        </CCol>
-      </CRow>
+        </Col>
+      </Row>
 
-      <CModal visible={modal} onClose={() => setModal(false)}>
-        <CModalHeader><CModalTitle>Цалингийн хугацаа үүсгэх</CModalTitle></CModalHeader>
-        <CModalBody>
-          <CForm>
-            <CRow className="g-3">
-              <CCol sm={6}><CFormLabel>Жил</CFormLabel>
-                <CFormInput type="number" value={form.year} onChange={e=>setForm(f=>({...f,year:e.target.value}))} /></CCol>
-              <CCol sm={6}><CFormLabel>Сар</CFormLabel>
-                <CFormInput type="number" min="1" max="12" value={form.month} onChange={e=>setForm(f=>({...f,month:e.target.value}))} /></CCol>
-              <CCol sm={6}><CFormLabel>Эхлэх огноо</CFormLabel>
-                <CFormInput type="date" value={form.start_date} onChange={e=>setForm(f=>({...f,start_date:e.target.value}))} /></CCol>
-              <CCol sm={6}><CFormLabel>Дуусах огноо</CFormLabel>
-                <CFormInput type="date" value={form.end_date} onChange={e=>setForm(f=>({...f,end_date:e.target.value}))} /></CCol>
-            </CRow>
-          </CForm>
-        </CModalBody>
-        <CModalFooter>
-          <CButton color="secondary" onClick={() => setModal(false)}>Болих</CButton>
-          <CButton color="primary" onClick={createPeriod} disabled={saving}>
-            {saving ? <CSpinner size="sm" /> : 'Үүсгэх'}
-          </CButton>
-        </CModalFooter>
-      </CModal>
+      <Modal open={modal} onOk={createPeriod} onCancel={() => setModal(false)}
+        title="Цалингийн хугацаа үүсгэх" confirmLoading={saving}
+        okText="Үүсгэх" cancelText="Болих" destroyOnClose>
+        <Form form={form} layout="vertical" requiredMark={false}>
+          <Row gutter={12}>
+            <Col span={12}><Form.Item name="year" label="Жил" rules={[{ required: true }]}><InputNumber style={{ width: '100%' }} /></Form.Item></Col>
+            <Col span={12}><Form.Item name="month" label="Сар" rules={[{ required: true }]}><InputNumber style={{ width: '100%' }} min={1} max={12} /></Form.Item></Col>
+            <Col span={12}><Form.Item name="start_date" label="Эхлэх огноо" rules={[{ required: true }]}><DatePicker style={{ width: '100%' }} /></Form.Item></Col>
+            <Col span={12}><Form.Item name="end_date" label="Дуусах огноо" rules={[{ required: true }]}><DatePicker style={{ width: '100%' }} /></Form.Item></Col>
+          </Row>
+        </Form>
+      </Modal>
     </div>
   )
 }
 
-// ── Editable payroll entries table ──────────────────────────────────
 function PayrollEntriesTable({ entries, canEdit, onUpdated, period }) {
-  const [editing, setEditing] = useState(null)  // employee_id of row being edited
-  const [bonusVal, setBonusVal] = useState('')
+  const [editing,  setEditing]  = useState(null)
+  const [bonusVal, setBonusVal] = useState()
   const [noteVal,  setNoteVal]  = useState('')
   const [saving,   setSaving]   = useState(false)
 
-  const startEdit = (e) => {
-    setEditing(e.employee_id)
-    setBonusVal(Number(e.bonus || 0))
-    setNoteVal(e.note || '')
-  }
+  const startEdit = (e) => { setEditing(e.employee_id); setBonusVal(Number(e.bonus || 0)); setNoteVal(e.note || '') }
   const save = async (e) => {
     setSaving(true)
     try {
       await api.upsertEntry(period.id, {
         employee_id: e.employee_id,
-        base_salary: e.base_salary,
-        overtime_hours: e.overtime_hours,
-        overtime_pay: e.overtime_pay,
+        base_salary: e.base_salary, overtime_hours: e.overtime_hours, overtime_pay: e.overtime_pay,
         bonus: Number(bonusVal) || 0,
-        deduction_tax: e.deduction_tax,
-        deduction_social: e.deduction_social,
-        deduction_other: e.deduction_other,
-        worked_days: e.worked_days,
-        absent_days: e.absent_days,
-        note: noteVal || null,
+        deduction_tax: e.deduction_tax, deduction_social: e.deduction_social, deduction_other: e.deduction_other,
+        worked_days: e.worked_days, absent_days: e.absent_days, note: noteVal || null,
       })
-      setEditing(null); onUpdated()
+      setEditing(null); onUpdated(); message.success('Хадгалагдлаа')
     } finally { setSaving(false) }
   }
-  const cancel = () => setEditing(null)
+
+  const cols = [
+    { title: 'Код', dataIndex: 'emp_code', width: 90 },
+    { title: 'Нэр', dataIndex: 'full_name' },
+    { title: 'Хэлтэс', dataIndex: 'department_name', render: v => v || '—' },
+    { title: 'Үндсэн', dataIndex: 'base_salary', align: 'right', render: v => fmt(v) },
+    { title: 'Илүү', dataIndex: 'overtime_pay', align: 'right', render: v => fmt(v) },
+    { title: 'Урамшуулал', dataIndex: 'bonus', align: 'right', width: 160,
+      render: (v, e) => editing === e.employee_id
+        ? <InputNumber size="small" value={bonusVal} onChange={setBonusVal} style={{ width: '100%' }} autoFocus />
+        : <span style={{ color: Number(v) > 0 ? '#52c41a' : undefined, fontWeight: Number(v) > 0 ? 600 : 400 }}>{fmt(v)}</span> },
+    { title: 'Суутгал', align: 'right',
+      render: (_, e) => <span style={{ color: '#cf1322' }}>
+        {fmt(Number(e.deduction_tax || 0) + Number(e.deduction_social || 0) + Number(e.deduction_other || 0))}
+      </span> },
+    { title: 'Цэвэр', align: 'right',
+      render: (_, e) => {
+        const deduction = Number(e.deduction_tax || 0) + Number(e.deduction_social || 0) + Number(e.deduction_other || 0)
+        const bonus = editing === e.employee_id ? Number(bonusVal || 0) : Number(e.bonus || 0)
+        return <strong>{fmt(Number(e.base_salary || 0) + Number(e.overtime_pay || 0) + bonus - deduction)}</strong>
+      } },
+    canEdit && { title: '', width: 100, render: (_, e) => (
+      editing === e.employee_id
+        ? <Space size="small">
+            <Button size="small" type="primary" loading={saving} onClick={() => save(e)}>✓</Button>
+            <Button size="small" onClick={() => setEditing(null)}>×</Button>
+          </Space>
+        : <Button size="small" onClick={() => startEdit(e)}>Урамш</Button>
+    ) },
+  ].filter(Boolean)
 
   return (
-    <CTable hover responsive small className="mb-0">
-      <CTableHead>
-        <CTableRow>
-          <CTableHeaderCell>Код</CTableHeaderCell>
-          <CTableHeaderCell>Нэр</CTableHeaderCell>
-          <CTableHeaderCell>Хэлтэс</CTableHeaderCell>
-          <CTableHeaderCell className="text-end">Үндсэн</CTableHeaderCell>
-          <CTableHeaderCell className="text-end">Илүү</CTableHeaderCell>
-          <CTableHeaderCell className="text-end" style={{minWidth:140}}>Урамшуулал</CTableHeaderCell>
-          <CTableHeaderCell className="text-end">Суутгал</CTableHeaderCell>
-          <CTableHeaderCell className="text-end">Цэвэр</CTableHeaderCell>
-          {canEdit && <CTableHeaderCell style={{width:90}}></CTableHeaderCell>}
-        </CTableRow>
-      </CTableHead>
-      <CTableBody>
-        {entries.map(e => {
-          const isEditing = editing === e.employee_id
-          const deduction = Number(e.deduction_tax||0)+Number(e.deduction_social||0)+Number(e.deduction_other||0)
-          return (
-            <CTableRow key={e.id} active={isEditing}>
-              <CTableDataCell>{e.emp_code}</CTableDataCell>
-              <CTableDataCell>{e.full_name}</CTableDataCell>
-              <CTableDataCell>{e.department_name}</CTableDataCell>
-              <CTableDataCell className="text-end">{fmt(e.base_salary)}</CTableDataCell>
-              <CTableDataCell className="text-end">{fmt(e.overtime_pay)}</CTableDataCell>
-              <CTableDataCell className="text-end">
-                {isEditing ? (
-                  <CFormInput size="sm" type="number" value={bonusVal}
-                    onChange={ev => setBonusVal(ev.target.value)}
-                    className="text-end" autoFocus />
-                ) : (
-                  <span className={Number(e.bonus) > 0 ? 'text-success fw-semibold' : ''}>
-                    {fmt(e.bonus)}
-                  </span>
-                )}
-              </CTableDataCell>
-              <CTableDataCell className="text-end text-danger">{fmt(deduction)}</CTableDataCell>
-              <CTableDataCell className="text-end fw-bold">
-                {fmt(Number(e.base_salary||0) + Number(e.overtime_pay||0) + (isEditing ? Number(bonusVal||0) : Number(e.bonus||0)) - deduction)}
-              </CTableDataCell>
-              {canEdit && (
-                <CTableDataCell>
-                  {isEditing ? (
-                    <div className="d-flex gap-1">
-                      <CButton size="sm" color="success" onClick={() => save(e)} disabled={saving}>
-                        {saving ? <CSpinner size="sm" /> : '✓'}
-                      </CButton>
-                      <CButton size="sm" color="secondary" variant="outline" onClick={cancel}>×</CButton>
-                    </div>
-                  ) : (
-                    <CButton size="sm" color="primary" variant="outline" onClick={() => startEdit(e)}>
-                      Урамш
-                    </CButton>
-                  )}
-                </CTableDataCell>
-              )}
-            </CTableRow>
-          )
-        })}
-        {editing !== null && (
-          <CTableRow>
-            <CTableDataCell colSpan={canEdit ? 9 : 8} className="bg-body-tertiary">
-              <div className="d-flex align-items-center gap-2">
-                <CFormLabel className="mb-0 small text-medium-emphasis">Тэмдэглэл:</CFormLabel>
-                <CFormInput size="sm" value={noteVal} onChange={e => setNoteVal(e.target.value)}
-                  placeholder="Урамшууллын шалтгаан (заавал биш)" />
-              </div>
-            </CTableDataCell>
-          </CTableRow>
-        )}
-        {entries.length === 0 && (
-          <CTableRow>
-            <CTableDataCell colSpan={canEdit ? 9 : 8} className="text-center text-medium-emphasis py-4">
-              Ажилтан алга. "⟲ Цалин тооцох" товчоор үүсгэнэ үү
-            </CTableDataCell>
-          </CTableRow>
-        )}
-      </CTableBody>
-    </CTable>
+    <>
+      <Table rowKey="id" size="small" columns={cols} dataSource={entries}
+        pagination={{ pageSize: 30 }}
+        locale={{ emptyText: 'Ажилтан алга. "Цалин тооцох" товчоор үүсгэнэ үү' }} />
+      {editing !== null && (
+        <div style={{ padding: 8, background: '#fafafa', marginTop: 4 }}>
+          <Space>
+            <span style={{ color: '#8c8c8c', fontSize: 12 }}>Тэмдэглэл:</span>
+            <Input size="small" value={noteVal} onChange={e => setNoteVal(e.target.value)}
+              placeholder="Урамшууллын шалтгаан (заавал биш)" style={{ width: 400 }} />
+          </Space>
+        </div>
+      )}
+    </>
   )
 }

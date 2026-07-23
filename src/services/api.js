@@ -1,23 +1,14 @@
 import axios from 'axios'
-import { Toast } from '@coreui/coreui'
+import { message as antdMessage } from 'antd'
 
 const BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:3500').replace(/\/+$/, '')
 
-// ── Toast helper ──────────────────────────────────────────────────────
-function showToast(message, type = 'success') {
-  const el = document.createElement('div')
-  el.className = `toast align-items-center text-white bg-${type} border-0`
-  Object.assign(el.style, { position: 'fixed', top: '16px', left: '50%', transform: 'translateX(-50%)', zIndex: 9999 })
-  el.setAttribute('role', 'alert')
-  el.innerHTML = `<div class="d-flex"><div class="toast-body">${message}</div>
-    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-coreui-dismiss="toast"></button></div>`
-  document.body.appendChild(el)
-  const t = new Toast(el, { delay: 3000 })
-  t.show()
-  el.addEventListener('hidden.coreui.toast', () => el.remove())
+const notify = {
+  success: (m) => antdMessage.success(m || 'Амжилттай'),
+  error:   (m) => antdMessage.error(m || 'Алдаа гарлаа'),
+  warning: (m) => antdMessage.warning(m),
 }
 
-// ── Axios instance ────────────────────────────────────────────────────
 const client = axios.create({ baseURL: `${BASE_URL}/api` })
 
 client.interceptors.request.use((cfg) => {
@@ -29,20 +20,20 @@ client.interceptors.request.use((cfg) => {
 
 client.interceptors.response.use(
   (res) => {
-    if (res.config.method !== 'get') showToast(res.data?.message || 'Амжилттай', 'success')
+    if (res.config.method !== 'get' && res.data?.message) notify.success(res.data.message)
     return res.data
   },
   (err) => {
     if (!err.response) {
-      showToast('Сүлжээний алдаа', 'danger')
+      notify.error('Сүлжээний алдаа')
     } else {
       const { status, data } = err.response
       if (status === 401) {
-        showToast('Нэвтрэх шаардлагатай', 'warning')
+        notify.warning('Нэвтрэх шаардлагатай')
         localStorage.clear()
         window.location.href = '/#/login'
       } else {
-        showToast(data?.message || 'Алдаа гарлаа', 'danger')
+        notify.error(data?.message)
       }
     }
     return Promise.reject(err)
@@ -77,6 +68,9 @@ const api = {
   createEmployee:     (data)      => client.post('/employees', data),
   updateEmployee:     (id, data)  => client.put(`/employees/${id}`, data),
   terminateEmployee:  (id, data)  => client.post(`/employees/${id}/terminate`, data),
+  setEmployeePin:     (id, data)  => client.post(`/employees/${id}/set-pin`, data),
+  getEmployeeQrToken: (id)        => client.get (`/employees/${id}/qr-token`),
+  issueEmployeeQr:    (id)        => client.post(`/employees/${id}/qr-token`),
 
   // ── Attendance ────────────────────────────────────────────────────
   getAttendance:      (params)    => client.get('/attendance', { params }),
@@ -275,6 +269,87 @@ const api = {
   createProject:       (data)     => client.post('/projects', data),
   updateProject:       (id, data) => client.put(`/projects/${id}`, data),
   deleteProject:       (id)       => client.delete(`/projects/${id}`),
+
+  // ── Insurance (ХАБЭА хууль 28.4) ─────────────────────────────────
+  getInsurances:       (params)   => client.get('/insurances', { params }),
+  getInsuranceStats:   ()         => client.get('/insurances/stats'),
+  getUncoveredWorkers: ()         => client.get('/insurances/uncovered'),
+  createInsurance:     (data)     => client.post('/insurances', data),
+  updateInsurance:     (id, data) => client.put(`/insurances/${id}`, data),
+  deleteInsurance:     (id)       => client.delete(`/insurances/${id}`),
+
+  // ── Accidents (Үйлдвэрлэлийн осол) ───────────────────────────────
+  getAccidents:        (params)   => client.get('/accidents', { params }),
+  getAccidentStats:    ()         => client.get('/accidents/stats'),
+  getAccident:         (id)       => client.get(`/accidents/${id}`),
+  createAccident:      (data)     => client.post('/accidents', data),
+  updateAccident:      (id, data) => client.put(`/accidents/${id}`, data),
+  deleteAccident:      (id)       => client.delete(`/accidents/${id}`),
+
+  // ── Health checks (Эрүүл мэндийн үзлэг) ──────────────────────────
+  getHealthChecks:     (params)   => client.get('/health-checks', { params }),
+  getHealthCheckDue:   (params)   => client.get('/health-checks/due', { params }),
+  getHealthCheckStats: ()         => client.get('/health-checks/stats'),
+  createHealthCheck:   (data)     => client.post('/health-checks', data),
+  updateHealthCheck:   (id, data) => client.put(`/health-checks/${id}`, data),
+  deleteHealthCheck:   (id)       => client.delete(`/health-checks/${id}`),
+
+  // ── OSH Committee (Аюулгүйн зөвлөл) ──────────────────────────────
+  getOshMembers:       ()         => client.get('/osh-committee/members'),
+  addOshMember:        (data)     => client.post('/osh-committee/members', data),
+  updateOshMember:     (id, data) => client.put(`/osh-committee/members/${id}`, data),
+  removeOshMember:     (id)       => client.delete(`/osh-committee/members/${id}`),
+  getOshMeetings:      (params)   => client.get('/osh-committee/meetings', { params }),
+  createOshMeeting:    (data)     => client.post('/osh-committee/meetings', data),
+  updateOshMeeting:    (id, data) => client.put(`/osh-committee/meetings/${id}`, data),
+  removeOshMeeting:    (id)       => client.delete(`/osh-committee/meetings/${id}`),
+
+  // ── Chemicals (Химийн бодис) ─────────────────────────────────────
+  getChemicals:        (params)   => client.get('/chemicals', { params }),
+  getChemicalStats:    ()         => client.get('/chemicals/stats'),
+  createChemical:      (data)     => client.post('/chemicals', data),
+  updateChemical:      (id, data) => client.put(`/chemicals/${id}`, data),
+  deleteChemical:      (id)       => client.delete(`/chemicals/${id}`),
+
+  // ── Fire safety (Галын аюулгүй байдал) ──────────────────────────
+  getFireStats:        ()         => client.get('/fire-safety/stats'),
+  getFireEquipment:    (params)   => client.get('/fire-safety/equipment', { params }),
+  createFireEquipment: (data)     => client.post('/fire-safety/equipment', data),
+  updateFireEquipment: (id, data) => client.put(`/fire-safety/equipment/${id}`, data),
+  deleteFireEquipment: (id)       => client.delete(`/fire-safety/equipment/${id}`),
+  getFireInspections:  ()         => client.get('/fire-safety/inspections'),
+  createFireInspection:(data)     => client.post('/fire-safety/inspections', data),
+
+  // ── Risk Assessment ──────────────────────────────────────────────
+  getRiskAssessments:  (params)   => client.get('/risk-assessments', { params }),
+  getRiskStats:        ()         => client.get('/risk-assessments/stats'),
+  createRiskAssessment:(data)     => client.post('/risk-assessments', data),
+  updateRiskAssessment:(id, data) => client.put(`/risk-assessments/${id}`, data),
+  deleteRiskAssessment:(id)       => client.delete(`/risk-assessments/${id}`),
+
+  // ── Detox rations ────────────────────────────────────────────────
+  getDetoxRations:     (params)   => client.get('/detox-rations', { params }),
+  getDetoxMissing:     ()         => client.get('/detox-rations/missing'),
+  createDetoxRation:   (data)     => client.post('/detox-rations', data),
+  deleteDetoxRation:   (id)       => client.delete(`/detox-rations/${id}`),
+
+  // ── Tool inspections + expiring certs ────────────────────────────
+  getToolInspections:  (params)   => client.get('/tool-inspections', { params }),
+  getExpiringCerts:    ()         => client.get('/tool-inspections/expiring'),
+  createToolInspection:(data)     => client.post('/tool-inspections', data),
+  deleteToolInspection:(id)       => client.delete(`/tool-inspections/${id}`),
+
+  // ── OSH Budget (1.5% rule) ───────────────────────────────────────
+  getOshBudgetSummary: (params)   => client.get('/osh-budget/summary', { params }),
+  getOshBaseline:      (params)   => client.get('/osh-budget/baseline', { params }),
+  setOshBaseline:      (data)     => client.put('/osh-budget/baseline', data),
+  getOshExpenses:      (params)   => client.get('/osh-budget/expenses', { params }),
+  createOshExpense:    (data)     => client.post('/osh-budget/expenses', data),
+  deleteOshExpense:    (id)       => client.delete(`/osh-budget/expenses/${id}`),
+
+  // ── Training compliance ──────────────────────────────────────────
+  getTrainingMatrix:   (params)   => client.get('/training-compliance/matrix', { params }),
+  getTrainingComplianceSummary: (params) => client.get('/training-compliance/summary', { params }),
 }
 
 export default api

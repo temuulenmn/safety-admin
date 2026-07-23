@@ -25,6 +25,17 @@ const Materials      = React.lazy(() => import('./views/safety/Materials'))
 const Kpi            = React.lazy(() => import('./views/safety/Kpi'))
 const Projects       = React.lazy(() => import('./views/safety/Projects'))
 const ProjectOverview = React.lazy(() => import('./views/safety/ProjectOverview'))
+const Insurance      = React.lazy(() => import('./views/safety/Insurance'))
+const Accidents      = React.lazy(() => import('./views/safety/Accidents'))
+const HealthChecks   = React.lazy(() => import('./views/safety/HealthChecks'))
+const OshCommittee   = React.lazy(() => import('./views/safety/OshCommittee'))
+const Chemicals      = React.lazy(() => import('./views/safety/Chemicals'))
+const FireSafety     = React.lazy(() => import('./views/safety/FireSafety'))
+const RiskAssessments = React.lazy(() => import('./views/safety/RiskAssessments'))
+const DetoxRations   = React.lazy(() => import('./views/safety/DetoxRations'))
+const ToolInspections = React.lazy(() => import('./views/safety/ToolInspections'))
+const OshBudget      = React.lazy(() => import('./views/safety/OshBudget'))
+const TrainingCompliance = React.lazy(() => import('./views/safety/TrainingCompliance'))
 
 const routes = [
   { path: '/',             exact: true, name: 'Нүүр' },
@@ -53,6 +64,17 @@ const routes = [
   { path: '/kpi',               name: 'KPI',              element: Kpi },
   { path: '/marketplace',         name: 'Барааны каталог',   element: MarketCatalog },
   { path: '/marketplace/orders',  name: 'Миний захиалгууд',  element: MarketOrders },
+  { path: '/insurance',           name: 'Даатгал',            element: Insurance },
+  { path: '/accidents',           name: 'Үйлдвэрлэлийн осол', element: Accidents },
+  { path: '/health-checks',       name: 'Эрүүл мэндийн үзлэг', element: HealthChecks },
+  { path: '/osh-committee',       name: 'Аюулгүйн зөвлөл',    element: OshCommittee },
+  { path: '/chemicals',           name: 'Химийн бодис',        element: Chemicals },
+  { path: '/fire-safety',         name: 'Галын аюулгүй байдал', element: FireSafety },
+  { path: '/risk-assessments',    name: 'Эрсдэлийн үнэлгээ',   element: RiskAssessments },
+  { path: '/detox-rations',       name: 'Хор саармагжуулах',   element: DetoxRations },
+  { path: '/tool-inspections',    name: 'Багажийн шалгалт',    element: ToolInspections },
+  { path: '/osh-budget',          name: '1.5% төсөв',           element: OshBudget },
+  { path: '/training-compliance', name: 'Сургалтын нийцэл',   element: TrainingCompliance },
 ]
 
 export default routes

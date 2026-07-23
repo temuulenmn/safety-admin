@@ -1,0 +1,196 @@
+/*!
+=========================================================
+* Muse Ant Design Dashboard - v1.0.0
+=========================================================
+* Product Page: https://www.creative-tim.com/product/muse-ant-design-dashboard
+* Copyright 2021 Creative Tim (https://www.creative-tim.com)
+* Licensed under MIT (https://github.com/creativetimofficial/muse-ant-design-dashboard/blob/main/LICENSE.md)
+* Coded by Creative Tim
+=========================================================
+* The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+*/
+@media (min-width: 992px) {
+  .layout-dashboard .ant-layout-footer {
+    margin: 0 0 20px 20px;
+  }
+  .layout-dashboard .ant-layout-sider.sider-primary {
+    margin: 20px 0 0 20px;
+    padding: 13px 20px;
+    height: calc(100vh - 20px);
+  }
+  .layout-dashboard .ant-layout {
+    width: auto;
+    flex-shrink: 1;
+    margin-left: 270px;
+  }
+  .layout-dashboard .header-control .sidebar-toggler {
+    display: none;
+  }
+}
+
+@media (min-width: 768px) {
+  .layout-dashboard .ant-layout-header {
+    margin: 10px 20px;
+  }
+  .layout-dashboard .header-control {
+    margin-top: 0;
+  }
+  .layout-dashboard .header-control .header-search {
+    margin: 0 7px;
+  }
+  .layout-dashboard .header-control .btn-sign-in span {
+    display: inline;
+  }
+  .profile-nav-bg {
+    margin-top: -87.8px;
+  }
+  .card-profile-head {
+    margin: -53px 24px 24px;
+  }
+}
+
+@media (min-width: 992px) {
+  .card-billing-info.ant-card .ant-card-body {
+    display: flex;
+  }
+  .layout-dashboard-rtl {
+    overflow: auto;
+  }
+  .layout-dashboard-rtl .ant-layout-sider.sider-primary {
+    margin: 20px 20px 0 0;
+    height: calc(100vh - 20px);
+  }
+  .layout-dashboard-rtl .ant-layout-sider.sider-primary {
+    right: 0;
+    left: auto;
+  }
+  .layout-dashboard-rtl .ant-layout-sider.sider-primary {
+    right: 0;
+    left: auto;
+  }
+  .layout-dashboard-rtl .ant-layout {
+    margin-right: 270px;
+    margin-left: 0;
+  }
+  .layout-dashboard-rtl .ant-layout-footer {
+    margin: 0 20px 20px 0;
+  }
+}
+
+@media (max-width: 768px) {
+  .layout-dashboard.layout-dashboard-rtl .header-control {
+    justify-content: flex-end;
+  }
+}
+
+/* ============================================================
+   Глобал responsive засвар — бүх huudas
+   ============================================================ */
+
+/* Tablet ба түүнээс доош */
+@media (max-width: 992px) {
+  /* Хүснэгтийг хэвтээ scroll болгох */
+  .ant-table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .ant-table { min-width: 600px; }
+
+  /* Tabs scroll */
+  .ant-tabs-nav-wrap { overflow-x: auto; }
+
+  /* Layout content padding */
+  .content-ant { padding: 16px !important; }
+
+  /* Card body padding багасгах */
+  .ant-card-body { padding: 16px !important; }
+
+  /* Statistic title жижигрүүлэх */
+  .ant-statistic-title { font-size: 12px; }
+  .ant-statistic-content { font-size: 18px; }
+
+  /* Header — хайлт хэт тодорхой бус болохгүй */
+  .ant-page-header-heading-title { font-size: 16px; }
+}
+
+/* Mobile */
+@media (max-width: 576px) {
+  /* Header padding багасгах */
+  .ant-layout-header { padding: 0 12px !important; line-height: 48px; height: 48px; }
+
+  /* Modal — viewport-ийн ихэнхийг авах */
+  .ant-modal { max-width: calc(100vw - 16px) !important; margin: 8px; }
+
+  /* Form item margin */
+  .ant-form-item { margin-bottom: 12px !important; }
+
+  /* Title жижиг */
+  h1.ant-typography { font-size: 22px !important; }
+  h2.ant-typography { font-size: 20px !important; }
+  h3.ant-typography { font-size: 18px !important; }
+
+  /* Card title responsive */
+  .ant-card-head-title { font-size: 14px; padding: 12px 0; }
+
+  /* Button-ууд багасгах */
+  .ant-btn-lg { height: 40px; font-size: 14px; }
+
+  /* Layout content padding */
+  .content-ant { padding: 12px !important; }
+
+  /* Drawer бүтэн ашиглах */
+  .ant-drawer-content-wrapper { max-width: 90vw; }
+
+  /* Tag, badge зэрэг */
+  .ant-tag { margin-right: 4px; margin-bottom: 4px; font-size: 11px; }
+
+  /* Footer багасгах */
+  .ant-layout-footer { padding: 12px !important; font-size: 11px; }
+
+  /* Breadcrumb — utgani багасгах */
+  .ant-breadcrumb { font-size: 12px; }
+}
+
+/* Маш жижиг */
+@media (max-width: 360px) {
+  .ant-statistic-content-value { font-size: 16px !important; }
+  .ant-btn { font-size: 12px; }
+}
+
+/* Хэт том InputNumber Mobile дээр */
+@media (max-width: 576px) {
+  .ant-input-number { width: 100% !important; }
+}
+
+
+/* Огт үлдэгдэлгүй — улаан мөр */
+.row-out-of-stock > td { background: #fff1f0 !important; }
+.row-out-of-stock:hover > td { background: #ffe7e6 !important; }
+/* Доод хязгаараас доош боловч үлдэгдэлтэй — улбар шар */
+.row-low-stock > td { background: #fff7e6 !important; }
+.row-low-stock:hover > td { background: #ffefd0 !important; }
+
+/* Бүх admin table row-уудын өндрийг жигдрүүлэх */
+.ant-table-tbody > tr > td {
+    vertical-align: middle;
+}
+
+/* Toolbar — Card-ийн extra хэсгийн form элементүүдийг жигд өндөртэй болгох */
+.toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.toolbar > * { vertical-align: middle; }
+
+/* Card extra доторх Input prefix-той wrapper-ийн inner input өндрийг auto болгох
+   (wrapper-ийн өндөр л 32px байх ёстой, дотор input shouldn't force its own height) */
+.ant-card-extra .ant-input-affix-wrapper > .ant-input,
+.toolbar .ant-input-affix-wrapper > .ant-input {
+    height: auto !important;
+}
+
+/* Table header — арай нягт, padding багатай */
+.ant-table-thead > tr > th {
+    padding: 10px 8px !important;
+    background: #fafbfd !important;
+    font-weight: 600 !important;
+    font-size: 12px !important;
+    color: #595959 !important;
+}
+.ant-table-tbody > tr > td {
+    padding: 10px 8px !important;
+}

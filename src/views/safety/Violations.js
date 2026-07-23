@@ -1,13 +1,10 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react'
-import {
-  CButton, CCard, CCardBody, CCardHeader, CBadge, CSpinner, CRow, CCol,
-  CFormInput, CFormSelect, CFormLabel, CFormTextarea,
-  CModal, CModalHeader, CModalTitle, CModalBody, CModalFooter, CForm,
-  CTable, CTableHead, CTableRow, CTableHeaderCell, CTableBody, CTableDataCell,
-} from '@coreui/react'
-import { AgGridReact } from 'ag-grid-react'
+import React, { useEffect, useState, useCallback } from 'react'
 import { useSelector } from 'react-redux'
-import { useGridTheme, defaultColDef, makeServerDatasource } from 'src/utils/agGrid'
+import {
+  Row, Col, Card, Table, Tag, Button, Modal, Form, Input, Select, InputNumber,
+  Space, Statistic, Descriptions, Alert, Spin, message,
+} from 'antd'
+import { PlusOutlined, DownloadOutlined, SettingOutlined } from '@ant-design/icons'
 import api from 'src/services/api'
 import { downloadCSV } from 'src/utils/exporters'
 import dayjs from 'dayjs'
@@ -20,311 +17,295 @@ const TYPE_LABEL = {
   no_boots:         'Гутал буруу',
   other:            'Бусад',
 }
-const STATUS_COLOR = { pending:'warning', confirmed:'info', paid:'success', waived:'secondary' }
-const STATUS_LABEL = { pending:'Хүлээгдэж буй', confirmed:'Баталгаажсан', paid:'Төлсөн', waived:'Чөлөөлсөн' }
-const fmtMNT = n => Number(n||0).toLocaleString('mn-MN') + '₮'
+const STATUS_COLOR = { pending: 'orange', confirmed: 'cyan', paid: 'success', waived: 'default' }
+const STATUS_LABEL = { pending: 'Хүлээгдэж буй', confirmed: 'Баталгаажсан', paid: 'Төлсөн', waived: 'Чөлөөлсөн' }
+const fmtMNT = n => Number(n || 0).toLocaleString('mn-MN') + '₮'
 
 export default function Violations() {
-  const gridTheme = useGridTheme()
-  const gridRef = useRef()
   const currentProjectId = useSelector(s => s.currentProjectId)
-  const [stats,    setStats]    = useState(null)
-  const [emps,     setEmps]     = useState([])
-  const [statusF,  setStatusF]  = useState('')
-  const [typeF,    setTypeF]    = useState('')
-  const [modal,    setModal]    = useState(false)
-  const [form,     setForm]     = useState({ employee_id:'', violation_type:'clothing_missing', zone:'', description:'', missing_items:'', penalty_amount:20000 })
-  const [saving,   setSaving]   = useState(false)
-  const [detail,   setDetail]   = useState(null)
+  const [stats,   setStats]   = useState(null)
+  const [emps,    setEmps]    = useState([])
+  const [statusF, setStatusF] = useState()
+  const [typeF,   setTypeF]   = useState()
+  const [rows,    setRows]    = useState([])
+  const [loading, setLoading] = useState(false)
+  const [page,    setPage]    = useState({ current: 1, pageSize: 25, total: 0 })
+
+  const [modal, setModal] = useState(false)
+  const [form]  = Form.useForm()
+  const [saving,setSaving] = useState(false)
+  const [detail,setDetail] = useState(null)
   const [setModalOpen, setSetModalOpen] = useState(false)
 
+  const refreshStats = () => api.getViolationStats({ days: 30 }).then(r => setStats(r.data))
   useEffect(() => {
-    api.getEmployees({ status:'active', limit:500 }).then(r => setEmps(r.data || []))
+    api.getEmployees({ status: 'active', limit: 500 }).then(r => setEmps(r.data || []))
     refreshStats()
   }, [])
-  const refreshStats = () => api.getViolationStats({ days: 30 }).then(r => setStats(r.data))
 
-  const refresh = useCallback(() => {
-    const ds = makeServerDatasource(({ page, limit }) =>
-      api.getViolations({ page, limit, status: statusF || undefined, violation_type: typeF || undefined, project_id: currentProjectId || undefined }))
-    gridRef.current?.api?.setGridOption('datasource', ds)
+  const load = useCallback((p = 1, l = 25) => {
+    setLoading(true)
+    api.getViolations({
+      page: p, limit: l,
+      status: statusF || undefined,
+      violation_type: typeF || undefined,
+      project_id: currentProjectId || undefined,
+    }).then(r => {
+      setRows(r.data || [])
+      setPage({ current: p, pageSize: l, total: r.total || (r.data || []).length })
+    }).finally(() => setLoading(false))
   }, [statusF, typeF, currentProjectId])
-  useEffect(() => { refresh() }, [refresh])
+  useEffect(() => { load(1, page.pageSize) /* eslint-disable-next-line */ }, [statusF, typeF, currentProjectId])
 
   const exportExcel = async () => {
-    const r = await api.getViolations({ page:1, limit:5000, status: statusF || undefined, violation_type: typeF || undefined, project_id: currentProjectId || undefined })
+    const r = await api.getViolations({ page: 1, limit: 5000,
+      status: statusF || undefined, violation_type: typeF || undefined,
+      project_id: currentProjectId || undefined })
     downloadCSV('zorchil', ['Огноо','Код','Ажилтан','Хэлтэс','Төрөл','Бүс','Төсөл','Торгууль','Төлөв'],
       (r.data || []).map(v => [
         v.occurred_at ? dayjs(v.occurred_at).format('YYYY-MM-DD HH:mm') : '',
-        v.emp_code||'', v.full_name||'', v.department||'',
-        TYPE_LABEL[v.violation_type]||v.violation_type, v.zone||'', v.project_name||'',
-        v.penalty_amount||0, STATUS_LABEL[v.status]||v.status]))
+        v.emp_code || '', v.full_name || '', v.department || '',
+        TYPE_LABEL[v.violation_type] || v.violation_type, v.zone || '', v.project_name || '',
+        v.penalty_amount || 0, STATUS_LABEL[v.status] || v.status]))
   }
 
   const openCreate = () => {
-    setForm({ employee_id:'', violation_type:'clothing_missing', zone:'', description:'', missing_items:'', penalty_amount:20000 })
+    form.resetFields()
+    form.setFieldsValue({ violation_type: 'clothing_missing', penalty_amount: 20000 })
     setModal(true)
   }
   const save = async () => {
-    setSaving(true)
     try {
+      const v = await form.validateFields()
+      setSaving(true)
       await api.createViolation({
-        ...form,
-        missing_items: form.missing_items.split(',').map(s=>s.trim()).filter(Boolean),
-        penalty_amount: Number(form.penalty_amount),
+        ...v,
+        missing_items: (v.missing_items || '').split(',').map(s => s.trim()).filter(Boolean),
+        penalty_amount: Number(v.penalty_amount),
       })
-      setModal(false); refresh(); refreshStats()
-    } finally { setSaving(false) }
+      setModal(false); load(page.current, page.pageSize); refreshStats(); message.success('Бүртгэгдлээ')
+    } catch (e) { if (e?.errorFields) return }
+    finally { setSaving(false) }
   }
   const changeStatus = async (id, status) => {
     await api.updateViolation(id, { status })
-    refresh(); refreshStats()
+    load(page.current, page.pageSize); refreshStats()
     if (detail?.id === id) setDetail(d => ({ ...d, status }))
+    message.success('Шинэчлэгдлээ')
   }
 
   const cols = [
-    { field:'occurred_at', headerName:'Огноо', width:150,
-      valueFormatter: p => p.value ? dayjs(p.value).format('MM-DD HH:mm') : '' },
-    { field:'emp_code', headerName:'Код', width:100 },
-    { field:'full_name', headerName:'Ажилтан', flex:1 },
-    { field:'department', headerName:'Хэлтэс', width:140 },
-    { field:'violation_type', headerName:'Төрөл', width:140,
-      cellRenderer: p => TYPE_LABEL[p.value] || p.value },
-    { field:'zone', headerName:'Бүс', width:110 },
-    { field:'project_name', headerName:'Төсөл', width:150, cellRenderer: p => p.value || '—' },
-    { field:'penalty_amount', headerName:'Торгууль', width:130,
-      cellRenderer: p => <span className="fw-semibold">{fmtMNT(p.value)}</span> },
-    { field:'status', headerName:'Төлөв', width:130,
-      cellRenderer: p => <CBadge color={STATUS_COLOR[p.value]}>{STATUS_LABEL[p.value]}</CBadge> },
-    { headerName:'', width:90, sortable:false,
-      cellRenderer: p => <CButton size="sm" color="primary" variant="outline" onClick={()=>setDetail(p.data)}>Үзэх</CButton> },
+    { title: 'Огноо', dataIndex: 'occurred_at', width: 150,
+      render: v => v ? dayjs(v).format('MM-DD HH:mm') : '—' },
+    { title: 'Код', dataIndex: 'emp_code', width: 100 },
+    { title: 'Ажилтан', dataIndex: 'full_name' },
+    { title: 'Хэлтэс', dataIndex: 'department', width: 130, render: v => v || '—' },
+    { title: 'Төрөл', dataIndex: 'violation_type', width: 140,
+      render: v => TYPE_LABEL[v] || v },
+    { title: 'Бүс', dataIndex: 'zone', width: 100, render: v => v || '—' },
+    { title: 'Төсөл', dataIndex: 'project_name', width: 130, render: v => v || '—' },
+    { title: 'Торгууль', dataIndex: 'penalty_amount', width: 130, align: 'right',
+      render: v => <strong>{fmtMNT(v)}</strong> },
+    { title: 'Төлөв', dataIndex: 'status', width: 130,
+      render: v => <Tag color={STATUS_COLOR[v]}>{STATUS_LABEL[v]}</Tag> },
+    { title: '', width: 80, render: (_, r) => (
+      <Button size="small" onClick={() => setDetail(r)}>Үзэх</Button>
+    ) },
   ]
 
   return (
-    <div className="p-3">
-      <div className="d-flex justify-content-between align-items-center mb-3">
-        <h4 className="fw-bold mb-0">Зөрчил / Торгууль</h4>
-        <div>
-          <CButton color="secondary" variant="outline" className="me-2" onClick={exportExcel}>⬇ Excel</CButton>
-          <CButton color="secondary" variant="outline" className="me-2" onClick={()=>setSetModalOpen(true)}>⚙ Тохиргоо</CButton>
-          <CButton color="danger" onClick={openCreate}>+ Зөрчил бүртгэх</CButton>
-        </div>
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <h4 style={{ margin: 0, fontWeight: 700 }}>Зөрчил / Торгууль</h4>
+        <Space>
+          <Button icon={<DownloadOutlined />} onClick={exportExcel}>Excel</Button>
+          <Button icon={<SettingOutlined />} onClick={() => setSetModalOpen(true)}>Тохиргоо</Button>
+          <Button type="primary" danger icon={<PlusOutlined />} onClick={openCreate}>Зөрчил бүртгэх</Button>
+        </Space>
       </div>
 
       {stats?.overall && (
-        <CRow className="g-2 mb-3">
-          <CCol sm={3}><CCard><CCardBody className="py-2 text-center">
-            <div className="small text-medium-emphasis">Нийт зөрчил (30 хоног)</div>
-            <div className="fw-bold fs-4">{stats.overall.total}</div>
-          </CCardBody></CCard></CCol>
-          <CCol sm={3}><CCard><CCardBody className="py-2 text-center">
-            <div className="small text-medium-emphasis">Хүлээгдэж буй</div>
-            <div className="fw-bold fs-4 text-warning">{stats.overall.pending}</div>
-          </CCardBody></CCard></CCol>
-          <CCol sm={3}><CCard><CCardBody className="py-2 text-center">
-            <div className="small text-medium-emphasis">Цуглуулсан</div>
-            <div className="fw-bold fs-5 text-success">{fmtMNT(stats.overall.collected)}</div>
-          </CCardBody></CCard></CCol>
-          <CCol sm={3}><CCard><CCardBody className="py-2 text-center">
-            <div className="small text-medium-emphasis">Авлага үлдсэн</div>
-            <div className="fw-bold fs-5 text-danger">{fmtMNT(stats.overall.outstanding)}</div>
-          </CCardBody></CCard></CCol>
-        </CRow>
+        <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
+          <Col xs={12} sm={6}>
+            <Card size="small" style={{ textAlign: 'center' }}>
+              <Statistic title="Нийт зөрчил (30 хоног)" value={stats.overall.total} valueStyle={{ fontWeight: 700 }} />
+            </Card>
+          </Col>
+          <Col xs={12} sm={6}>
+            <Card size="small" style={{ textAlign: 'center' }}>
+              <Statistic title="Хүлээгдэж буй" value={stats.overall.pending}
+                valueStyle={{ color: '#faad14', fontWeight: 700 }} />
+            </Card>
+          </Col>
+          <Col xs={12} sm={6}>
+            <Card size="small" style={{ textAlign: 'center' }}>
+              <Statistic title="Цуглуулсан" value={fmtMNT(stats.overall.collected)}
+                valueStyle={{ color: '#52c41a', fontWeight: 700, fontSize: 18 }} />
+            </Card>
+          </Col>
+          <Col xs={12} sm={6}>
+            <Card size="small" style={{ textAlign: 'center' }}>
+              <Statistic title="Авлага үлдсэн" value={fmtMNT(stats.overall.outstanding)}
+                valueStyle={{ color: '#cf1322', fontWeight: 700, fontSize: 18 }} />
+            </Card>
+          </Col>
+        </Row>
       )}
 
       {stats?.top_violators?.length > 0 && (
-        <CCard className="mb-3">
-          <CCardHeader className="fw-semibold">Хамгийн их зөрчилтэй (30 хоног)</CCardHeader>
-          <CCardBody className="p-0">
-            <CTable small className="mb-0">
-              <CTableHead>
-                <CTableRow>
-                  <CTableHeaderCell>Код</CTableHeaderCell>
-                  <CTableHeaderCell>Нэр</CTableHeaderCell>
-                  <CTableHeaderCell className="text-end">Зөрчил</CTableHeaderCell>
-                  <CTableHeaderCell className="text-end">Дүн</CTableHeaderCell>
-                </CTableRow>
-              </CTableHead>
-              <CTableBody>
-                {stats.top_violators.slice(0,5).map(v => (
-                  <CTableRow key={v.employee_id}>
-                    <CTableDataCell>{v.emp_code}</CTableDataCell>
-                    <CTableDataCell>{v.full_name}</CTableDataCell>
-                    <CTableDataCell className="text-end">{v.count}</CTableDataCell>
-                    <CTableDataCell className="text-end fw-semibold">{fmtMNT(v.total_amount)}</CTableDataCell>
-                  </CTableRow>
-                ))}
-              </CTableBody>
-            </CTable>
-          </CCardBody>
-        </CCard>
+        <Card title="Хамгийн их зөрчилтэй (30 хоног)" size="small" style={{ marginBottom: 16 }}>
+          <Table rowKey="employee_id" size="small" pagination={false}
+            columns={[
+              { title: 'Код', dataIndex: 'emp_code', width: 100 },
+              { title: 'Нэр', dataIndex: 'full_name' },
+              { title: 'Зөрчил', dataIndex: 'count', align: 'right', width: 100 },
+              { title: 'Дүн', dataIndex: 'total_amount', align: 'right', width: 160,
+                render: v => <strong>{fmtMNT(v)}</strong> },
+            ]}
+            dataSource={stats.top_violators.slice(0, 5)} />
+        </Card>
       )}
 
-      <CCard>
-        <CCardHeader>
-          <CRow className="g-2">
-            <CCol sm={3}>
-              <CFormSelect value={statusF} onChange={e=>setStatusF(e.target.value)}>
-                <option value="">Бүх төлөв</option>
-                {Object.entries(STATUS_LABEL).map(([k,l]) => <option key={k} value={k}>{l}</option>)}
-              </CFormSelect>
-            </CCol>
-            <CCol sm={3}>
-              <CFormSelect value={typeF} onChange={e=>setTypeF(e.target.value)}>
-                <option value="">Бүх төрөл</option>
-                {Object.entries(TYPE_LABEL).map(([k,l]) => <option key={k} value={k}>{l}</option>)}
-              </CFormSelect>
-            </CCol>
-          </CRow>
-        </CCardHeader>
-        <CCardBody className="p-0">
-          <div style={{ height: 540, width:'100%' }}>
-            <AgGridReact ref={gridRef} theme={gridTheme} rowModelType="infinite"
-              columnDefs={cols} defaultColDef={defaultColDef} cacheBlockSize={25}
-              onGridReady={refresh} />
-          </div>
-        </CCardBody>
-      </CCard>
+      <Card>
+        <Row gutter={8} style={{ marginBottom: 12 }}>
+          <Col xs={12} sm={6}>
+            <Select value={statusF} onChange={setStatusF} allowClear
+              placeholder="Бүх төлөв" style={{ width: '100%' }}
+              options={Object.entries(STATUS_LABEL).map(([k, l]) => ({ value: k, label: l }))} />
+          </Col>
+          <Col xs={12} sm={6}>
+            <Select value={typeF} onChange={setTypeF} allowClear
+              placeholder="Бүх төрөл" style={{ width: '100%' }}
+              options={Object.entries(TYPE_LABEL).map(([k, l]) => ({ value: k, label: l }))} />
+          </Col>
+        </Row>
+        <Table rowKey="id" size="middle" loading={loading}
+          columns={cols} dataSource={rows}
+          pagination={{ ...page, onChange: (p, s) => load(p, s) }} />
+      </Card>
 
-      {/* Create modal */}
-      <CModal visible={modal} onClose={()=>setModal(false)}>
-        <CModalHeader><CModalTitle>Зөрчил бүртгэх</CModalTitle></CModalHeader>
-        <CModalBody>
-          <CForm><CRow className="g-3">
-            <CCol sm={12}><CFormLabel>Ажилтан *</CFormLabel>
-              <CFormSelect value={form.employee_id} onChange={e=>setForm(f=>({...f,employee_id:e.target.value}))}>
-                <option value="">-- Сонгох --</option>
-                {emps.map(e => <option key={e.id} value={e.id}>{e.emp_code} — {e.last_name} {e.first_name}</option>)}
-              </CFormSelect>
-            </CCol>
-            <CCol sm={6}><CFormLabel>Зөрчлийн төрөл</CFormLabel>
-              <CFormSelect value={form.violation_type} onChange={e=>setForm(f=>({...f,violation_type:e.target.value}))}>
-                {Object.entries(TYPE_LABEL).map(([k,l]) => <option key={k} value={k}>{l}</option>)}
-              </CFormSelect>
-            </CCol>
-            <CCol sm={6}><CFormLabel>Бүс</CFormLabel>
-              <CFormInput value={form.zone} onChange={e=>setForm(f=>({...f,zone:e.target.value}))} /></CCol>
-            <CCol sm={12}><CFormLabel>Дутуу зүйлс (таслалаар)</CFormLabel>
-              <CFormInput value={form.missing_items} onChange={e=>setForm(f=>({...f,missing_items:e.target.value}))}
-                placeholder="helmet, vest, gloves" /></CCol>
-            <CCol sm={12}><CFormLabel>Тайлбар</CFormLabel>
-              <CFormTextarea rows={2} value={form.description} onChange={e=>setForm(f=>({...f,description:e.target.value}))} /></CCol>
-            <CCol sm={6}><CFormLabel>Торгуулийн дүн (₮)</CFormLabel>
-              <CFormInput type="number" value={form.penalty_amount} onChange={e=>setForm(f=>({...f,penalty_amount:e.target.value}))} /></CCol>
-          </CRow></CForm>
-        </CModalBody>
-        <CModalFooter>
-          <CButton color="secondary" onClick={()=>setModal(false)}>Болих</CButton>
-          <CButton color="danger" onClick={save} disabled={saving || !form.employee_id}>
-            {saving ? <CSpinner size="sm" /> : 'Бүртгэх'}
-          </CButton>
-        </CModalFooter>
-      </CModal>
+      <Modal open={modal} onOk={save} onCancel={() => setModal(false)}
+        title="Зөрчил бүртгэх" confirmLoading={saving}
+        okText="Бүртгэх" cancelText="Болих" destroyOnClose>
+        <Form form={form} layout="vertical" requiredMark={false}>
+          <Form.Item name="employee_id" label="Ажилтан" rules={[{ required: true }]}>
+            <Select showSearch optionFilterProp="label" placeholder="-- Сонгох --"
+              options={emps.map(e => ({ value: e.id, label: `${e.emp_code} — ${e.last_name} ${e.first_name}` }))} />
+          </Form.Item>
+          <Row gutter={12}>
+            <Col span={12}>
+              <Form.Item name="violation_type" label="Зөрчлийн төрөл">
+                <Select options={Object.entries(TYPE_LABEL).map(([k, l]) => ({ value: k, label: l }))} />
+              </Form.Item>
+            </Col>
+            <Col span={12}><Form.Item name="zone" label="Бүс"><Input /></Form.Item></Col>
+          </Row>
+          <Form.Item name="missing_items" label="Дутуу зүйлс (таслалаар)">
+            <Input placeholder="helmet, vest, gloves" />
+          </Form.Item>
+          <Form.Item name="description" label="Тайлбар"><Input.TextArea rows={2} /></Form.Item>
+          <Form.Item name="penalty_amount" label="Торгуулийн дүн (₮)">
+            <InputNumber style={{ width: '100%' }} min={0} />
+          </Form.Item>
+        </Form>
+      </Modal>
 
-      {/* Detail modal */}
-      <CModal visible={!!detail} onClose={()=>setDetail(null)}>
-        <CModalHeader><CModalTitle>Зөрчлийн дэлгэрэнгүй</CModalTitle></CModalHeader>
-        <CModalBody>
-          {detail && (
-            <div>
-              <CRow className="mb-2"><CCol sm={4} className="text-medium-emphasis">Ажилтан</CCol>
-                <CCol sm={8} className="fw-semibold">{detail.emp_code} — {detail.full_name}</CCol></CRow>
-              <CRow className="mb-2"><CCol sm={4} className="text-medium-emphasis">Огноо</CCol>
-                <CCol sm={8}>{dayjs(detail.occurred_at).format('YYYY-MM-DD HH:mm')}</CCol></CRow>
-              <CRow className="mb-2"><CCol sm={4} className="text-medium-emphasis">Төрөл</CCol>
-                <CCol sm={8}>{TYPE_LABEL[detail.violation_type] || detail.violation_type}</CCol></CRow>
-              <CRow className="mb-2"><CCol sm={4} className="text-medium-emphasis">Бүс</CCol>
-                <CCol sm={8}>{detail.zone || '—'}</CCol></CRow>
-              <CRow className="mb-2"><CCol sm={4} className="text-medium-emphasis">Дутуу</CCol>
-                <CCol sm={8}>{(detail.missing_items||[]).join(', ') || '—'}</CCol></CRow>
-              <CRow className="mb-2"><CCol sm={4} className="text-medium-emphasis">Тайлбар</CCol>
-                <CCol sm={8}>{detail.description || '—'}</CCol></CRow>
-              <CRow className="mb-2"><CCol sm={4} className="text-medium-emphasis">Торгууль</CCol>
-                <CCol sm={8} className="fw-bold text-danger">{fmtMNT(detail.penalty_amount)}</CCol></CRow>
-              <CRow className="mb-2"><CCol sm={4} className="text-medium-emphasis">Төлөв</CCol>
-                <CCol sm={8}><CBadge color={STATUS_COLOR[detail.status]}>{STATUS_LABEL[detail.status]}</CBadge></CCol></CRow>
-            </div>
-          )}
-        </CModalBody>
-        <CModalFooter>
-          {detail?.status === 'pending' && (
-            <>
-              <CButton color="info" variant="outline" onClick={()=>changeStatus(detail.id, 'confirmed')}>Баталгаажуулах</CButton>
-              <CButton color="secondary" variant="outline" onClick={()=>changeStatus(detail.id, 'waived')}>Чөлөөлөх</CButton>
-            </>
-          )}
-          {(detail?.status === 'pending' || detail?.status === 'confirmed') && (
-            <CButton color="success" onClick={()=>changeStatus(detail.id, 'paid')}>Төлөв: Төлсөн</CButton>
-          )}
-          <CButton color="secondary" onClick={()=>setDetail(null)}>Хаах</CButton>
-        </CModalFooter>
-      </CModal>
+      <Modal open={!!detail} onCancel={() => setDetail(null)}
+        title="Зөрчлийн дэлгэрэнгүй" width={600}
+        footer={
+          <Space>
+            {detail?.status === 'pending' && (
+              <>
+                <Button onClick={() => changeStatus(detail.id, 'confirmed')}>Баталгаажуулах</Button>
+                <Button onClick={() => changeStatus(detail.id, 'waived')}>Чөлөөлөх</Button>
+              </>
+            )}
+            {(detail?.status === 'pending' || detail?.status === 'confirmed') && (
+              <Button type="primary" onClick={() => changeStatus(detail.id, 'paid')}>Төлөв: Төлсөн</Button>
+            )}
+            <Button onClick={() => setDetail(null)}>Хаах</Button>
+          </Space>
+        }>
+        {detail && (
+          <Descriptions column={1} bordered size="small">
+            <Descriptions.Item label="Ажилтан">{detail.emp_code} — {detail.full_name}</Descriptions.Item>
+            <Descriptions.Item label="Огноо">{dayjs(detail.occurred_at).format('YYYY-MM-DD HH:mm')}</Descriptions.Item>
+            <Descriptions.Item label="Төрөл">{TYPE_LABEL[detail.violation_type] || detail.violation_type}</Descriptions.Item>
+            <Descriptions.Item label="Бүс">{detail.zone || '—'}</Descriptions.Item>
+            <Descriptions.Item label="Дутуу">{(detail.missing_items || []).join(', ') || '—'}</Descriptions.Item>
+            <Descriptions.Item label="Тайлбар">{detail.description || '—'}</Descriptions.Item>
+            <Descriptions.Item label="Торгууль">
+              <span style={{ color: '#cf1322', fontWeight: 700 }}>{fmtMNT(detail.penalty_amount)}</span>
+            </Descriptions.Item>
+            <Descriptions.Item label="Төлөв">
+              <Tag color={STATUS_COLOR[detail.status]}>{STATUS_LABEL[detail.status]}</Tag>
+            </Descriptions.Item>
+          </Descriptions>
+        )}
+      </Modal>
 
-      {setModalOpen && <SettingsModal onClose={()=>setSetModalOpen(false)} />}
+      {setModalOpen && <SettingsModal onClose={() => setSetModalOpen(false)} />}
     </div>
   )
 }
 
-// ── Warning/penalty threshold settings (#2) ─────────────────────────
 function SettingsModal({ onClose }) {
-  const [form, setForm] = useState(null)
+  const [form] = Form.useForm()
+  const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [preview, setPreview] = useState(null)
 
   useEffect(() => {
-    api.getViolationSettings().then(r => setForm(r.data))
-  }, [])
+    api.getViolationSettings().then(r => {
+      setPreview(r.data)
+      form.setFieldsValue({
+        violation_warning_limit: Number(r.data.violation_warning_limit),
+        penalty_amount: Number(r.data.penalty_amount),
+        warning_reset_days: Number(r.data.warning_reset_days),
+      })
+    }).finally(() => setLoading(false))
+  }, [form])
 
   const save = async () => {
-    setSaving(true)
     try {
+      const v = await form.validateFields()
+      setSaving(true)
       await api.updateViolationSettings({
-        violation_warning_limit: Number(form.violation_warning_limit),
-        penalty_amount: Number(form.penalty_amount),
-        warning_reset_days: Number(form.warning_reset_days),
+        violation_warning_limit: Number(v.violation_warning_limit),
+        penalty_amount: Number(v.penalty_amount),
+        warning_reset_days: Number(v.warning_reset_days),
       })
-      onClose()
-    } finally { setSaving(false) }
+      message.success('Хадгалагдлаа'); onClose()
+    } catch (e) { if (e?.errorFields) return }
+    finally { setSaving(false) }
   }
 
   return (
-    <CModal visible={true} onClose={onClose} backdrop="static">
-      <CModalHeader><CModalTitle>Сануулга / Торгуулийн тохиргоо</CModalTitle></CModalHeader>
-      <CModalBody>
-        {!form ? <div className="text-center py-3"><CSpinner /></div> : (
-          <>
-            <div className="alert alert-info py-2 small">
-              ⓘ Ажилтныг <strong>{form.violation_warning_limit}</strong> удаа сануулаад,
-              дараагийн ({Number(form.violation_warning_limit)+1} дэх) зөрчилд автоматаар
-              <strong> {Number(form.penalty_amount).toLocaleString()}₮</strong> торгууль ноогдуулна.
-            </div>
-            <CForm><CRow className="g-3">
-              <CCol sm={12}>
-                <CFormLabel>Сануулгын тоо (X удаа)</CFormLabel>
-                <CFormInput type="number" min="0" value={form.violation_warning_limit}
-                  onChange={e=>setForm(f=>({...f,violation_warning_limit:e.target.value}))} />
-                <div className="form-text small">Энэ тооноос хэтэрвэл торгууль эхэлнэ</div>
-              </CCol>
-              <CCol sm={12}>
-                <CFormLabel>Торгуулийн дүн (₮)</CFormLabel>
-                <CFormInput type="number" min="0" value={form.penalty_amount}
-                  onChange={e=>setForm(f=>({...f,penalty_amount:e.target.value}))} />
-              </CCol>
-              <CCol sm={12}>
-                <CFormLabel>Сануулга тэглэх хугацаа (хоног)</CFormLabel>
-                <CFormInput type="number" min="1" value={form.warning_reset_days}
-                  onChange={e=>setForm(f=>({...f,warning_reset_days:e.target.value}))} />
-                <div className="form-text small">Энэ хоногийн дотор тоолно (rolling window)</div>
-              </CCol>
-            </CRow></CForm>
-          </>
-        )}
-      </CModalBody>
-      <CModalFooter>
-        <CButton color="secondary" onClick={onClose}>Болих</CButton>
-        <CButton color="primary" onClick={save} disabled={saving || !form}>
-          {saving ? <CSpinner size="sm" /> : 'Хадгалах'}
-        </CButton>
-      </CModalFooter>
-    </CModal>
+    <Modal open onOk={save} onCancel={onClose} confirmLoading={saving}
+      title="Сануулга / Торгуулийн тохиргоо" okText="Хадгалах" cancelText="Болих" destroyOnClose>
+      {loading ? <div style={{ textAlign: 'center', padding: 30 }}><Spin /></div> : (
+        <>
+          {preview && (
+            <Alert type="info" showIcon style={{ marginBottom: 12 }}
+              message={<>Ажилтныг <strong>{preview.violation_warning_limit}</strong> удаа сануулаад,
+                дараагийн ({Number(preview.violation_warning_limit) + 1} дэх) зөрчилд автоматаар
+                <strong> {Number(preview.penalty_amount).toLocaleString()}₮</strong> торгууль ноогдуулна.</>} />
+          )}
+          <Form form={form} layout="vertical" requiredMark={false}>
+            <Form.Item name="violation_warning_limit" label="Сануулгын тоо (X удаа)"
+              help="Энэ тооноос хэтэрвэл торгууль эхэлнэ">
+              <InputNumber style={{ width: '100%' }} min={0} />
+            </Form.Item>
+            <Form.Item name="penalty_amount" label="Торгуулийн дүн (₮)">
+              <InputNumber style={{ width: '100%' }} min={0} />
+            </Form.Item>
+            <Form.Item name="warning_reset_days" label="Сануулга тэглэх хугацаа (хоног)"
+              help="Энэ хоногийн дотор тоолно (rolling window)">
+              <InputNumber style={{ width: '100%' }} min={1} />
+            </Form.Item>
+          </Form>
+        </>
+      )}
+    </Modal>
   )
 }

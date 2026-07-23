@@ -1,37 +1,32 @@
 import React, { useEffect, useState, useCallback } from 'react'
 import {
-  CButton, CCard, CCardBody, CCardHeader, CBadge, CSpinner, CRow, CCol,
-  CFormInput, CFormSelect, CFormLabel, CNav, CNavItem, CNavLink,
-  CTabContent, CTabPane, CForm,
-  CModal, CModalHeader, CModalTitle, CModalBody, CModalFooter,
-  CTable, CTableHead, CTableBody, CTableRow, CTableHeaderCell, CTableDataCell,
-} from '@coreui/react'
+  Row, Col, Card, Tabs, Table, Tag, Button, Modal, Form, Input, InputNumber,
+  Select, Space, Popconfirm, Alert, message,
+} from 'antd'
+import { PlusOutlined, CalculatorOutlined, SaveOutlined } from '@ant-design/icons'
 import api from 'src/services/api'
 import dayjs from 'dayjs'
 
 const money = (n) => Number(n || 0).toLocaleString() + '₮'
-const EMPTY_NORM = { name:'', category:'', unit:'ширхэг', qty_per_m2:'', unit_price:'', waste_pct:'', notes:'' }
+const UNITS = ['ширхэг','кг','м³','м²','уут','литр','тонн','багц']
 
 export default function Materials() {
   const [tab, setTab] = useState('calc')
 
-  // Norms
   const [norms, setNorms] = useState([])
   const [loadingNorms, setLoadingNorms] = useState(false)
   const [modal, setModal] = useState(false)
-  const [form, setForm] = useState(EMPTY_NORM)
+  const [form] = Form.useForm()
   const [editing, setEditing] = useState(null)
   const [saving, setSaving] = useState(false)
 
-  // Calculator
-  const [area, setArea] = useState('')
-  const [calcCat, setCalcCat] = useState('')
+  const [area, setArea] = useState()
+  const [calcCat, setCalcCat] = useState()
   const [calc, setCalc] = useState(null)
   const [calculating, setCalculating] = useState(false)
   const [estTitle, setEstTitle] = useState('')
   const [savingEst, setSavingEst] = useState(false)
 
-  // Saved estimates
   const [estimates, setEstimates] = useState([])
 
   const loadNorms = useCallback(() => {
@@ -41,283 +36,218 @@ export default function Materials() {
   const loadEstimates = useCallback(() => {
     api.getMaterialEstimates().then(r => setEstimates(r.data || []))
   }, [])
-
   useEffect(() => { loadNorms(); loadEstimates() }, [loadNorms, loadEstimates])
 
-  // ── Norm CRUD ──
-  const openCreate = () => { setEditing(null); setForm(EMPTY_NORM); setModal(true) }
+  const openCreate = () => {
+    setEditing(null); form.resetFields()
+    form.setFieldsValue({ unit: 'ширхэг', waste_pct: 0 })
+    setModal(true)
+  }
   const openEdit = (n) => {
     setEditing(n.id)
-    setForm({ name:n.name, category:n.category||'', unit:n.unit, qty_per_m2:n.qty_per_m2,
-      unit_price:n.unit_price, waste_pct:n.waste_pct, notes:n.notes||'' })
+    form.setFieldsValue({
+      name: n.name, category: n.category || '', unit: n.unit,
+      qty_per_m2: Number(n.qty_per_m2), unit_price: Number(n.unit_price),
+      waste_pct: Number(n.waste_pct), notes: n.notes || '',
+    })
     setModal(true)
   }
   const saveNorm = async () => {
-    setSaving(true)
     try {
+      const v = await form.validateFields()
+      setSaving(true)
       const payload = {
-        ...form,
-        qty_per_m2: Number(form.qty_per_m2) || 0,
-        unit_price: Number(form.unit_price) || 0,
-        waste_pct:  Number(form.waste_pct) || 0,
+        ...v,
+        qty_per_m2: Number(v.qty_per_m2) || 0,
+        unit_price: Number(v.unit_price) || 0,
+        waste_pct:  Number(v.waste_pct) || 0,
       }
       editing ? await api.updateMaterialNorm(editing, payload) : await api.createMaterialNorm(payload)
-      setModal(false); loadNorms()
-    } finally { setSaving(false) }
+      setModal(false); loadNorms(); message.success('Хадгалагдлаа')
+    } catch (e) { if (e?.errorFields) return }
+    finally { setSaving(false) }
   }
-  const deleteNorm = async (id) => {
-    if (!window.confirm('Энэ нормыг устгах уу?')) return
-    await api.deleteMaterialNorm(id); loadNorms()
-  }
+  const deleteNorm = async (id) => { await api.deleteMaterialNorm(id); loadNorms(); message.success('Устгагдлаа') }
 
-  // ── Calculate ──
   const runCalc = async () => {
-    const a = Number(area)
-    if (!a || a <= 0) return
+    if (!area || area <= 0) return
     setCalculating(true)
     try {
-      const r = await api.calculateMaterials({ area_m2: a, category: calcCat || undefined })
+      const r = await api.calculateMaterials({ area_m2: Number(area), category: calcCat || undefined })
       setCalc(r.data)
     } finally { setCalculating(false) }
   }
   const saveEstimate = async () => {
-    if (!estTitle || !Number(area)) return
+    if (!estTitle || !area) return
     setSavingEst(true)
     try {
       await api.saveMaterialEstimate({ title: estTitle, area_m2: Number(area), category: calcCat || undefined })
-      setEstTitle(''); loadEstimates()
+      setEstTitle(''); loadEstimates(); message.success('Хадгалагдлаа')
     } finally { setSavingEst(false) }
   }
+  const deleteEstimate = async (id) => { await api.deleteMaterialEstimate(id); loadEstimates(); message.success('Устгагдлаа') }
 
   const categories = [...new Set(norms.map(n => n.category).filter(Boolean))].sort()
-  const deleteEstimate = async (id) => {
-    if (!window.confirm('Тооцоог устгах уу?')) return
-    await api.deleteMaterialEstimate(id); loadEstimates()
-  }
+
+  const calcCols = [
+    { title: 'Материал', dataIndex: 'name' },
+    { title: 'Ангилал', dataIndex: 'category', render: v => v || '—' },
+    { title: 'Норм/м²', dataIndex: 'qty_per_m2', align: 'right' },
+    { title: 'Хэмжээ', align: 'right', render: (_, l) => `${l.quantity} ${l.unit}` },
+    { title: 'Нэгж үнэ', dataIndex: 'unit_price', align: 'right', render: v => money(v) },
+    { title: 'Өртөг', dataIndex: 'cost', align: 'right',
+      render: v => <strong>{money(v)}</strong> },
+  ]
+
+  const normCols = [
+    { title: 'Материал', dataIndex: 'name' },
+    { title: 'Ангилал', dataIndex: 'category', render: v => v || '—' },
+    { title: 'Норм/м²', dataIndex: 'qty_per_m2', align: 'right' },
+    { title: 'Нэгж', dataIndex: 'unit', width: 90 },
+    { title: 'Үнэ', dataIndex: 'unit_price', align: 'right', render: v => money(v) },
+    { title: 'Хаягдал', dataIndex: 'waste_pct', align: 'right', render: v => `${v}%` },
+    { title: 'Төлөв', dataIndex: 'is_active', width: 100,
+      render: v => <Tag color={v ? 'success' : 'default'}>{v ? 'Идэвхтэй' : 'Идэвхгүй'}</Tag> },
+    { title: '', width: 130, render: (_, n) => (
+      <Space size="small">
+        <Button size="small" onClick={() => openEdit(n)}>Засах</Button>
+        <Popconfirm title="Устгах уу?" onConfirm={() => deleteNorm(n.id)} okText="Тийм" cancelText="Үгүй">
+          <Button size="small" danger>Устгах</Button>
+        </Popconfirm>
+      </Space>
+    ) },
+  ]
+
+  const estCols = [
+    { title: 'Нэр', dataIndex: 'title' },
+    { title: 'Талбай', dataIndex: 'area_m2', align: 'right', render: v => `${v} м²` },
+    { title: 'Нийт өртөг', dataIndex: 'total_cost', align: 'right',
+      render: v => <strong>{money(v)}</strong> },
+    { title: 'Үүсгэсэн', dataIndex: 'created_by_name', render: v => v || '—' },
+    { title: 'Огноо', dataIndex: 'created_at', render: v => dayjs(v).format('YYYY-MM-DD') },
+    { title: '', width: 90, render: (_, e) => (
+      <Popconfirm title="Тооцоог устгах уу?" onConfirm={() => deleteEstimate(e.id)} okText="Тийм" cancelText="Үгүй">
+        <Button size="small" danger>Устгах</Button>
+      </Popconfirm>
+    ) },
+  ]
+
+  const tabItems = [
+    { key: 'calc', label: 'Тооцоолуур', children: (
+      <>
+        <Card style={{ marginBottom: 16 }}>
+          <Row gutter={[12, 12]} align="bottom">
+            <Col xs={24} sm={6}>
+              <div style={{ marginBottom: 4 }}>Талбай (м²)</div>
+              <InputNumber value={area} onChange={setArea} min={0}
+                style={{ width: '100%' }} onPressEnter={runCalc} />
+            </Col>
+            <Col xs={24} sm={6}>
+              <div style={{ marginBottom: 4 }}>Ажлын төрөл</div>
+              <Select value={calcCat} onChange={setCalcCat} allowClear
+                style={{ width: '100%' }} placeholder="Бүгд"
+                options={categories.map(c => ({ value: c, label: c }))} />
+            </Col>
+            <Col xs={24} sm={4}>
+              <Button type="primary" icon={<CalculatorOutlined />}
+                onClick={runCalc} loading={calculating} disabled={!area}>Бодох</Button>
+            </Col>
+          </Row>
+          <Alert type="info" showIcon style={{ marginTop: 12 }}
+            message="Ажлын төрлөө сонгоод талбай оруулна. Норм = 1 м²-т ногдох хэмжээ × талбай × (1 + хаягдал%)." />
+        </Card>
+
+        {calc && (
+          <Card title={
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span>{calc.area_m2} м²-ийн материал</span>
+              <span style={{ fontSize: 20, fontWeight: 700, color: '#52c41a' }}>{money(calc.total_cost)}</span>
+            </div>
+          }>
+            <Table rowKey="norm_id" size="middle" columns={calcCols} dataSource={calc.lines}
+              pagination={false} locale={{ emptyText: 'Норм оруулаагүй байна.' }} />
+            {calc.lines.length > 0 && (
+              <Row gutter={12} align="bottom" style={{ marginTop: 16 }}>
+                <Col xs={24} sm={12}>
+                  <div style={{ marginBottom: 4 }}>Тооцоог хадгалах нэр</div>
+                  <Input value={estTitle} onChange={e => setEstTitle(e.target.value)}
+                    placeholder="ж: А блок, 1-р давхар" />
+                </Col>
+                <Col xs={24} sm={6}>
+                  <Button icon={<SaveOutlined />} onClick={saveEstimate}
+                    loading={savingEst} disabled={!estTitle}>Хадгалах</Button>
+                </Col>
+              </Row>
+            )}
+          </Card>
+        )}
+      </>
+    ) },
+    { key: 'norms', label: 'Нормын жагсаалт', children: (
+      <Card>
+        <Table rowKey="id" size="middle" loading={loadingNorms}
+          columns={normCols} dataSource={norms}
+          pagination={{ pageSize: 20 }} locale={{ emptyText: 'Норм байхгүй.' }} />
+      </Card>
+    ) },
+    { key: 'saved', label: 'Хадгалсан тооцоо', children: (
+      <Card>
+        <Table rowKey="id" size="middle" columns={estCols} dataSource={estimates}
+          pagination={{ pageSize: 20 }} locale={{ emptyText: 'Тооцоо алга.' }} />
+      </Card>
+    ) },
+  ]
 
   return (
-    <div className="p-3">
-      <div className="d-flex justify-content-between align-items-center mb-3">
-        <h4 className="fw-bold mb-0">Материалын тооцоо</h4>
-        {tab === 'norms' && <CButton color="primary" onClick={openCreate}>+ Норм нэмэх</CButton>}
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <h4 style={{ margin: 0, fontWeight: 700 }}>Материалын тооцоо</h4>
+        {tab === 'norms' && (
+          <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>Норм нэмэх</Button>
+        )}
       </div>
 
-      <CNav variant="tabs" className="mb-3">
-        {[['calc','Тооцоолуур'],['norms','Нормын жагсаалт'],['saved','Хадгалсан тооцоо']].map(([k,l]) => (
-          <CNavItem key={k}>
-            <CNavLink active={tab===k} onClick={()=>setTab(k)} style={{cursor:'pointer'}}>{l}</CNavLink>
-          </CNavItem>
-        ))}
-      </CNav>
+      <Tabs activeKey={tab} onChange={setTab} items={tabItems} />
 
-      <CTabContent>
-        {/* ── Calculator ── */}
-        <CTabPane visible={tab==='calc'}>
-          <CCard className="mb-3">
-            <CCardBody>
-              <CRow className="g-3 align-items-end">
-                <CCol sm={4}>
-                  <CFormLabel>Талбай (м²)</CFormLabel>
-                  <CFormInput type="number" min="0" value={area}
-                    onChange={e=>setArea(e.target.value)} onKeyDown={e=>e.key==='Enter'&&runCalc()} />
-                </CCol>
-                <CCol sm={4}>
-                  <CFormLabel>Ажлын төрөл</CFormLabel>
-                  <CFormSelect value={calcCat} onChange={e=>setCalcCat(e.target.value)}>
-                    <option value="">Бүгд</option>
-                    {categories.map(c => <option key={c} value={c}>{c}</option>)}
-                  </CFormSelect>
-                </CCol>
-                <CCol sm={3}>
-                  <CButton color="primary" onClick={runCalc} disabled={calculating || !Number(area)}>
-                    {calculating ? <CSpinner size="sm" /> : 'Бодох'}
-                  </CButton>
-                </CCol>
-              </CRow>
-              <div className="small text-medium-emphasis mt-2">
-                ⓘ Ажлын төрлөө сонгоод талбай оруулна (ж: "Өрлөг" → 100 м² хана). Норм = 1 м²-т ногдох хэмжээ × талбай × (1 + хаягдал%).
-                <br />Бүх төрлийг хольж тооцоолбол нийлбэр утгагүй болохыг анхаараарай.
-              </div>
-            </CCardBody>
-          </CCard>
-
-          {calc && (
-            <CCard>
-              <CCardHeader className="d-flex justify-content-between align-items-center">
-                <span className="fw-semibold">{calc.area_m2} м²-ийн материал</span>
-                <span className="fw-bold fs-5 text-success">{money(calc.total_cost)}</span>
-              </CCardHeader>
-              <CCardBody>
-                <CTable hover responsive>
-                  <CTableHead>
-                    <CTableRow>
-                      <CTableHeaderCell>Материал</CTableHeaderCell>
-                      <CTableHeaderCell>Ангилал</CTableHeaderCell>
-                      <CTableHeaderCell className="text-end">Норм/м²</CTableHeaderCell>
-                      <CTableHeaderCell className="text-end">Хэмжээ</CTableHeaderCell>
-                      <CTableHeaderCell className="text-end">Нэгж үнэ</CTableHeaderCell>
-                      <CTableHeaderCell className="text-end">Өртөг</CTableHeaderCell>
-                    </CTableRow>
-                  </CTableHead>
-                  <CTableBody>
-                    {calc.lines.length === 0 && (
-                      <CTableRow><CTableDataCell colSpan={6} className="text-center text-medium-emphasis">
-                        Норм оруулаагүй байна — "Нормын жагсаалт" хэсгээс нэмнэ үү.
-                      </CTableDataCell></CTableRow>
-                    )}
-                    {calc.lines.map(l => (
-                      <CTableRow key={l.norm_id}>
-                        <CTableDataCell>{l.name}</CTableDataCell>
-                        <CTableDataCell>{l.category || '—'}</CTableDataCell>
-                        <CTableDataCell className="text-end">{l.qty_per_m2}</CTableDataCell>
-                        <CTableDataCell className="text-end">{l.quantity} {l.unit}</CTableDataCell>
-                        <CTableDataCell className="text-end">{money(l.unit_price)}</CTableDataCell>
-                        <CTableDataCell className="text-end fw-semibold">{money(l.cost)}</CTableDataCell>
-                      </CTableRow>
-                    ))}
-                  </CTableBody>
-                </CTable>
-
-                {calc.lines.length > 0 && (
-                  <CRow className="g-2 align-items-end mt-2">
-                    <CCol sm={5}>
-                      <CFormLabel>Тооцоог хадгалах нэр</CFormLabel>
-                      <CFormInput value={estTitle} onChange={e=>setEstTitle(e.target.value)} placeholder="ж: А блок, 1-р давхар" />
-                    </CCol>
-                    <CCol sm={3}>
-                      <CButton color="success" variant="outline" onClick={saveEstimate} disabled={savingEst || !estTitle}>
-                        {savingEst ? <CSpinner size="sm" /> : 'Хадгалах'}
-                      </CButton>
-                    </CCol>
-                  </CRow>
-                )}
-              </CCardBody>
-            </CCard>
-          )}
-        </CTabPane>
-
-        {/* ── Norms list ── */}
-        <CTabPane visible={tab==='norms'}>
-          <CCard>
-            <CCardBody>
-              {loadingNorms ? <div className="text-center py-4"><CSpinner /></div> : (
-                <CTable hover responsive>
-                  <CTableHead>
-                    <CTableRow>
-                      <CTableHeaderCell>Материал</CTableHeaderCell>
-                      <CTableHeaderCell>Ангилал</CTableHeaderCell>
-                      <CTableHeaderCell className="text-end">Норм/м²</CTableHeaderCell>
-                      <CTableHeaderCell>Нэгж</CTableHeaderCell>
-                      <CTableHeaderCell className="text-end">Үнэ</CTableHeaderCell>
-                      <CTableHeaderCell className="text-end">Хаягдал%</CTableHeaderCell>
-                      <CTableHeaderCell>Төлөв</CTableHeaderCell>
-                      <CTableHeaderCell className="text-end">Үйлдэл</CTableHeaderCell>
-                    </CTableRow>
-                  </CTableHead>
-                  <CTableBody>
-                    {norms.length === 0 && (
-                      <CTableRow><CTableDataCell colSpan={8} className="text-center text-medium-emphasis">
-                        Норм байхгүй байна.
-                      </CTableDataCell></CTableRow>
-                    )}
-                    {norms.map(n => (
-                      <CTableRow key={n.id}>
-                        <CTableDataCell>{n.name}</CTableDataCell>
-                        <CTableDataCell>{n.category || '—'}</CTableDataCell>
-                        <CTableDataCell className="text-end">{n.qty_per_m2}</CTableDataCell>
-                        <CTableDataCell>{n.unit}</CTableDataCell>
-                        <CTableDataCell className="text-end">{money(n.unit_price)}</CTableDataCell>
-                        <CTableDataCell className="text-end">{n.waste_pct}%</CTableDataCell>
-                        <CTableDataCell>
-                          <CBadge color={n.is_active ? 'success' : 'secondary'}>{n.is_active ? 'Идэвхтэй' : 'Идэвхгүй'}</CBadge>
-                        </CTableDataCell>
-                        <CTableDataCell className="text-end">
-                          <CButton size="sm" color="primary" variant="outline" className="me-1" onClick={()=>openEdit(n)}>Засах</CButton>
-                          <CButton size="sm" color="danger" variant="outline" onClick={()=>deleteNorm(n.id)}>Устгах</CButton>
-                        </CTableDataCell>
-                      </CTableRow>
-                    ))}
-                  </CTableBody>
-                </CTable>
-              )}
-            </CCardBody>
-          </CCard>
-        </CTabPane>
-
-        {/* ── Saved estimates ── */}
-        <CTabPane visible={tab==='saved'}>
-          <CCard>
-            <CCardBody>
-              <CTable hover responsive>
-                <CTableHead>
-                  <CTableRow>
-                    <CTableHeaderCell>Нэр</CTableHeaderCell>
-                    <CTableHeaderCell className="text-end">Талбай</CTableHeaderCell>
-                    <CTableHeaderCell className="text-end">Нийт өртөг</CTableHeaderCell>
-                    <CTableHeaderCell>Үүсгэсэн</CTableHeaderCell>
-                    <CTableHeaderCell>Огноо</CTableHeaderCell>
-                    <CTableHeaderCell className="text-end">Үйлдэл</CTableHeaderCell>
-                  </CTableRow>
-                </CTableHead>
-                <CTableBody>
-                  {estimates.length === 0 && (
-                    <CTableRow><CTableDataCell colSpan={6} className="text-center text-medium-emphasis">
-                      Хадгалсан тооцоо алга.
-                    </CTableDataCell></CTableRow>
-                  )}
-                  {estimates.map(e => (
-                    <CTableRow key={e.id}>
-                      <CTableDataCell>{e.title}</CTableDataCell>
-                      <CTableDataCell className="text-end">{e.area_m2} м²</CTableDataCell>
-                      <CTableDataCell className="text-end fw-semibold">{money(e.total_cost)}</CTableDataCell>
-                      <CTableDataCell>{e.created_by_name || '—'}</CTableDataCell>
-                      <CTableDataCell>{dayjs(e.created_at).format('YYYY-MM-DD')}</CTableDataCell>
-                      <CTableDataCell className="text-end">
-                        <CButton size="sm" color="danger" variant="outline" onClick={()=>deleteEstimate(e.id)}>Устгах</CButton>
-                      </CTableDataCell>
-                    </CTableRow>
-                  ))}
-                </CTableBody>
-              </CTable>
-            </CCardBody>
-          </CCard>
-        </CTabPane>
-      </CTabContent>
-
-      {/* Norm create/edit modal */}
-      <CModal visible={modal} onClose={()=>setModal(false)}>
-        <CModalHeader><CModalTitle>{editing ? 'Норм засах' : 'Норм нэмэх'}</CModalTitle></CModalHeader>
-        <CModalBody>
-          <CForm><CRow className="g-3">
-            <CCol sm={8}><CFormLabel>Материалын нэр *</CFormLabel>
-              <CFormInput value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} /></CCol>
-            <CCol sm={4}><CFormLabel>Нэгж</CFormLabel>
-              <CFormSelect value={form.unit} onChange={e=>setForm(f=>({...f,unit:e.target.value}))}>
-                {['ширхэг','кг','м³','м²','уут','литр','тонн','багц'].map(u => <option key={u} value={u}>{u}</option>)}
-              </CFormSelect>
-            </CCol>
-            <CCol sm={6}><CFormLabel>Ангилал / ажлын төрөл</CFormLabel>
-              <CFormInput value={form.category} onChange={e=>setForm(f=>({...f,category:e.target.value}))} placeholder="ж: Цутгалт" /></CCol>
-            <CCol sm={6}><CFormLabel>1 м²-т ногдох хэмжээ *</CFormLabel>
-              <CFormInput type="number" step="0.0001" min="0" value={form.qty_per_m2}
-                onChange={e=>setForm(f=>({...f,qty_per_m2:e.target.value}))} /></CCol>
-            <CCol sm={6}><CFormLabel>Нэгж үнэ (₮)</CFormLabel>
-              <CFormInput type="number" min="0" value={form.unit_price}
-                onChange={e=>setForm(f=>({...f,unit_price:e.target.value}))} /></CCol>
-            <CCol sm={6}><CFormLabel>Хаягдлын нөөц (%)</CFormLabel>
-              <CFormInput type="number" min="0" value={form.waste_pct}
-                onChange={e=>setForm(f=>({...f,waste_pct:e.target.value}))} /></CCol>
-            <CCol sm={12}><CFormLabel>Тэмдэглэл</CFormLabel>
-              <CFormInput value={form.notes} onChange={e=>setForm(f=>({...f,notes:e.target.value}))} /></CCol>
-          </CRow></CForm>
-        </CModalBody>
-        <CModalFooter>
-          <CButton color="secondary" onClick={()=>setModal(false)}>Болих</CButton>
-          <CButton color="primary" onClick={saveNorm} disabled={saving || !form.name || !form.qty_per_m2}>
-            {saving ? <CSpinner size="sm" /> : 'Хадгалах'}
-          </CButton>
-        </CModalFooter>
-      </CModal>
+      <Modal open={modal} onOk={saveNorm} onCancel={() => setModal(false)}
+        title={editing ? 'Норм засах' : 'Норм нэмэх'} confirmLoading={saving}
+        okText="Хадгалах" cancelText="Болих" width={720} destroyOnClose>
+        <Form form={form} layout="vertical" requiredMark={false}>
+          <Row gutter={12}>
+            <Col span={16}>
+              <Form.Item name="name" label="Материалын нэр" rules={[{ required: true }]}><Input /></Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name="unit" label="Нэгж">
+                <Select options={UNITS.map(u => ({ value: u, label: u }))} />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="category" label="Ангилал / ажлын төрөл">
+                <Input placeholder="ж: Цутгалт" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="qty_per_m2" label="1 м²-т ногдох хэмжээ" rules={[{ required: true }]}>
+                <InputNumber style={{ width: '100%' }} min={0} step={0.0001} />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="unit_price" label="Нэгж үнэ (₮)">
+                <InputNumber style={{ width: '100%' }} min={0} />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="waste_pct" label="Хаягдлын нөөц (%)">
+                <InputNumber style={{ width: '100%' }} min={0} />
+              </Form.Item>
+            </Col>
+            <Col span={24}>
+              <Form.Item name="notes" label="Тэмдэглэл"><Input /></Form.Item>
+            </Col>
+          </Row>
+        </Form>
+      </Modal>
     </div>
   )
 }

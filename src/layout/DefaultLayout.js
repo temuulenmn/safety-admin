@@ -1,19 +1,16 @@
 import React from 'react'
-import { AppContent, AppSidebar, AppFooter, AppHeader } from '../components/index'
+import Main from './muse/Main'
+import AppContent from '../components/AppContent'
+import InstallPwaButton from '../components/InstallPwaButton'
 
-const DefaultLayout = () => {
-  return (
-    <div>
-      <AppSidebar />
-      <div className="wrapper d-flex flex-column min-vh-100">
-        <AppHeader />
-        <div className="body flex-grow-1">
-          <AppContent />
-        </div>
-        <AppFooter />
-      </div>
-    </div>
-  )
-}
+// Muse (antd) shell wrapping the existing route content. Individual page
+// components can stay CoreUI while we convert them one at a time — they
+// render inside the antd <Content> without breaking.
+const DefaultLayout = () => (
+  <Main>
+    <AppContent />
+    <InstallPwaButton />
+  </Main>
+)
 
 export default DefaultLayout

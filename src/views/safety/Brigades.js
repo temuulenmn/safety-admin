@@ -1,16 +1,14 @@
-import React, { useEffect, useState, useMemo } from 'react'
+import React, { useEffect, useState } from 'react'
 import {
-  CButton, CCard, CCardBody, CCardHeader, CBadge, CSpinner, CRow, CCol,
-  CFormInput, CFormSelect, CFormLabel, CFormTextarea, CFormCheck,
-  CModal, CModalHeader, CModalTitle, CModalBody, CModalFooter, CForm,
-  CTable, CTableHead, CTableRow, CTableHeaderCell, CTableBody, CTableDataCell,
-  CAlert,
-} from '@coreui/react'
+  Row, Col, Card, Table, Tag, Button, Modal, Form, Input, Select, Space,
+  Popconfirm, Alert, Checkbox, Statistic, message,
+} from 'antd'
+import { PlusOutlined, SearchOutlined } from '@ant-design/icons'
 import api from 'src/services/api'
 import dayjs from 'dayjs'
 
 const SPECIALTIES = ['Мужаан','Арматурчин','Цутгалт','Гагнуурчин','Цахилгаанчин','Сантехникч','Тоосго','Шавардлага','Будаг','Хучилт','Бусад']
-const fmt = n => Number(n||0).toLocaleString('mn-MN') + '₮'
+const fmt = n => Number(n || 0).toLocaleString('mn-MN') + '₮'
 
 export default function Brigades() {
   const [stats,    setStats]    = useState(null)
@@ -18,373 +16,311 @@ export default function Brigades() {
   const [emps,     setEmps]     = useState([])
   const [loading,  setLoading]  = useState(true)
   const [search,   setSearch]   = useState('')
-  const [specF,    setSpecF]    = useState('')
+  const [specF,    setSpecF]    = useState()
   const [modal,    setModal]    = useState(false)
   const [editing,  setEditing]  = useState(null)
   const [detail,   setDetail]   = useState(null)
+
   const load = () => {
     setLoading(true)
     Promise.all([
       api.getBrigades({ search: search || undefined, specialty: specF || undefined }),
       api.getBrigadeStats(),
-    ]).then(([l, s]) => { setList(l.data || []); setStats(s.data) })
-      .finally(() => setLoading(false))
+    ]).then(([l, s]) => { setList(l.data || []); setStats(s.data) }).finally(() => setLoading(false))
   }
   useEffect(() => {
-    api.getEmployees({ status:'active', limit:500 }).then(r => setEmps(r.data || []))
+    api.getEmployees({ status: 'active', limit: 500 }).then(r => setEmps(r.data || []))
     load()
   }, [])
   useEffect(load, [specF])
 
   const openCreate = () => { setEditing(null); setModal(true) }
   const openEdit   = (b) => { setEditing(b); setModal(true) }
-  const remove = async (id) => {
-    if (!window.confirm('Бригадыг устгах уу? (бүх гэрээ хамт устгагдана)')) return
-    await api.deleteBrigade(id); load()
-  }
+  const remove = async (id) => { await api.deleteBrigade(id); load(); message.success('Устгагдлаа') }
   const openDetail = (id) => api.getBrigade(id).then(r => setDetail(r.data))
 
+  const cols = [
+    { title: 'Нэр', dataIndex: 'name', render: v => <strong>{v}</strong> },
+    { title: 'Мэргэжил', dataIndex: 'specialty', render: v => v || '—' },
+    { title: 'Төрөл', dataIndex: 'is_external', width: 90,
+      render: v => <Tag color={v ? 'cyan' : 'blue'}>{v ? 'Гадны' : 'Дотоод'}</Tag> },
+    { title: 'Ахлагч', render: (_, b) => (
+      <>
+        <div>{b.leader_name || '—'}</div>
+        {b.leader_code && <div style={{ color: '#8c8c8c', fontSize: 11 }}>{b.leader_code}</div>}
+      </>
+    ) },
+    { title: 'Гишүүд', dataIndex: 'member_count', width: 80,
+      render: (v, b) => b.is_external ? '—' : v },
+    { title: 'Гэрээ', dataIndex: 'contract_count', width: 70 },
+    { title: 'Нийт дүн', dataIndex: 'total_value', width: 140, render: v => fmt(v) },
+    { title: 'Төлсөн', dataIndex: 'total_paid', width: 160,
+      render: (v, b) => {
+        const rest = Number(b.total_value) - Number(b.total_paid)
+        return <>
+          <span style={{ color: '#52c41a' }}>{fmt(v)}</span>
+          {rest > 0 && <div style={{ color: '#cf1322', fontSize: 11 }}>үлд {fmt(rest)}</div>}
+        </>
+      } },
+    { title: 'Статус', dataIndex: 'is_active', width: 100,
+      render: v => <Tag color={v ? 'success' : 'default'}>{v ? 'Идэвхтэй' : 'Хаагдсан'}</Tag> },
+    { title: '', width: 130, render: (_, b) => (
+      <Space size="small" onClick={e => e.stopPropagation()}>
+        <Button size="small" onClick={() => openEdit(b)}>Засах</Button>
+        <Popconfirm title="Бригадыг устгах уу?" onConfirm={() => remove(b.id)} okText="Тийм" cancelText="Үгүй">
+          <Button size="small" danger>×</Button>
+        </Popconfirm>
+      </Space>
+    ) },
+  ]
+
   return (
-    <div className="p-3">
-      <div className="d-flex justify-content-between align-items-center mb-3">
-        <h4 className="fw-bold mb-0">Бригадууд</h4>
-        <CButton color="primary" onClick={openCreate}>+ Бригад нэмэх</CButton>
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <h4 style={{ margin: 0, fontWeight: 700 }}>Бригадууд</h4>
+        <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>Бригад нэмэх</Button>
       </div>
 
       {stats && (
-        <CRow className="g-2 mb-3">
-          {[['Идэвхтэй бригад', stats.active_brigades, 'primary'],
-            ['Гадны бригад', stats.external_brigades, 'info'],
-            ['Идэвхтэй гэрээ', stats.open_contracts, 'warning'],
-            ['Үлдсэн өглөг', fmt(stats.outstanding), 'danger'],
-            ['Сүүлийн 30 хоног төлсөн', fmt(stats.paid_30d), 'success']].map(([l,v,c]) => (
-            <CCol key={l} xs={6} sm={2}>
-              <CCard><CCardBody className="py-2 text-center">
-                <div className="small text-medium-emphasis">{l}</div>
-                <div className={`fw-bold fs-5 text-${c}`}>{v ?? 0}</div>
-              </CCardBody></CCard>
-            </CCol>
+        <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
+          {[
+            ['Идэвхтэй бригад',    stats.active_brigades,    '#1890ff'],
+            ['Гадны бригад',       stats.external_brigades,  '#13c2c2'],
+            ['Идэвхтэй гэрээ',      stats.open_contracts,     '#faad14'],
+            ['Үлдсэн өглөг',        fmt(stats.outstanding),   '#cf1322'],
+            ['Сүүлийн 30х төлсөн', fmt(stats.paid_30d),      '#52c41a'],
+          ].map(([l, v, c]) => (
+            <Col key={l} xs={12} sm={4} md={4}>
+              <Card size="small" style={{ textAlign: 'center' }}>
+                <Statistic title={l} value={v ?? 0} valueStyle={{ color: c, fontWeight: 700, fontSize: 18 }} />
+              </Card>
+            </Col>
           ))}
-        </CRow>
+        </Row>
       )}
 
-      <CCard>
-        <CCardHeader>
-          <CRow className="g-2">
-            <CCol sm={4}>
-              <CFormInput placeholder="Хайх..." value={search}
-                onChange={e=>setSearch(e.target.value)} onKeyDown={e=>e.key==='Enter'&&load()} />
-            </CCol>
-            <CCol sm={3}>
-              <CFormSelect value={specF} onChange={e=>setSpecF(e.target.value)}>
-                <option value="">Бүх мэргэжил</option>
-                {SPECIALTIES.map(s => <option key={s} value={s}>{s}</option>)}
-              </CFormSelect>
-            </CCol>
-            <CCol sm={2}><CButton color="secondary" variant="outline" onClick={load}>Хайх</CButton></CCol>
-          </CRow>
-        </CCardHeader>
-        <CCardBody className="p-0">
-          {loading ? <div className="py-4 text-center"><CSpinner /></div> : (
-            <CTable hover responsive className="mb-0">
-              <CTableHead>
-                <CTableRow>
-                  <CTableHeaderCell>Нэр</CTableHeaderCell>
-                  <CTableHeaderCell>Мэргэжил</CTableHeaderCell>
-                  <CTableHeaderCell>Төрөл</CTableHeaderCell>
-                  <CTableHeaderCell>Ахлагч</CTableHeaderCell>
-                  <CTableHeaderCell>Гишүүд</CTableHeaderCell>
-                  <CTableHeaderCell>Гэрээ</CTableHeaderCell>
-                  <CTableHeaderCell>Нийт дүн</CTableHeaderCell>
-                  <CTableHeaderCell>Төлсөн</CTableHeaderCell>
-                  <CTableHeaderCell>Статус</CTableHeaderCell>
-                  <CTableHeaderCell></CTableHeaderCell>
-                </CTableRow>
-              </CTableHead>
-              <CTableBody>
-                {list.map(b => (
-                  <CTableRow key={b.id} style={{cursor:'pointer'}} onClick={() => openDetail(b.id)}>
-                    <CTableDataCell className="fw-semibold">{b.name}</CTableDataCell>
-                    <CTableDataCell>{b.specialty || '—'}</CTableDataCell>
-                    <CTableDataCell>
-                      <CBadge color={b.is_external ? 'info' : 'primary'}>
-                        {b.is_external ? 'Гадны' : 'Дотоод'}
-                      </CBadge>
-                    </CTableDataCell>
-                    <CTableDataCell>
-                      <div>{b.leader_name || '—'}</div>
-                      {b.leader_code && <small className="text-medium-emphasis">{b.leader_code}</small>}
-                    </CTableDataCell>
-                    <CTableDataCell>{b.is_external ? '—' : b.member_count}</CTableDataCell>
-                    <CTableDataCell>{b.contract_count}</CTableDataCell>
-                    <CTableDataCell>{fmt(b.total_value)}</CTableDataCell>
-                    <CTableDataCell>
-                      <span className="text-success">{fmt(b.total_paid)}</span>
-                      {Number(b.total_value)-Number(b.total_paid) > 0 && (
-                        <div className="small text-danger">үлд {fmt(Number(b.total_value)-Number(b.total_paid))}</div>
-                      )}
-                    </CTableDataCell>
-                    <CTableDataCell>
-                      <CBadge color={b.is_active?'success':'secondary'}>{b.is_active?'Идэвхтэй':'Хаагдсан'}</CBadge>
-                    </CTableDataCell>
-                    <CTableDataCell onClick={e=>e.stopPropagation()}>
-                      <CButton size="sm" color="primary" variant="outline" className="me-1" onClick={()=>openEdit(b)}>Засах</CButton>
-                      <CButton size="sm" color="danger" variant="outline" onClick={()=>remove(b.id)}>X</CButton>
-                    </CTableDataCell>
-                  </CTableRow>
-                ))}
-                {list.length === 0 && (
-                  <CTableRow>
-                    <CTableDataCell colSpan={10} className="text-center text-medium-emphasis py-4">Бригад алга</CTableDataCell>
-                  </CTableRow>
-                )}
-              </CTableBody>
-            </CTable>
-          )}
-        </CCardBody>
-      </CCard>
+      <Card>
+        <Row gutter={8} style={{ marginBottom: 12 }}>
+          <Col xs={24} sm={10}>
+            <Input.Search placeholder="Хайх..." value={search}
+              onChange={e => setSearch(e.target.value)} onSearch={load}
+              allowClear enterButton />
+          </Col>
+          <Col xs={24} sm={6}>
+            <Select value={specF} onChange={setSpecF} allowClear
+              placeholder="Бүх мэргэжил" style={{ width: '100%' }}
+              options={SPECIALTIES.map(s => ({ value: s, label: s }))} />
+          </Col>
+        </Row>
+        <Table rowKey="id" size="middle" loading={loading}
+          columns={cols} dataSource={list}
+          pagination={{ pageSize: 20 }} locale={{ emptyText: 'Бригад алга' }}
+          onRow={(b) => ({ onClick: () => openDetail(b.id), style: { cursor: 'pointer' } })} />
+      </Card>
 
       {modal && <BrigadeForm editing={editing} emps={emps}
-        onClose={()=>setModal(false)} onSaved={()=>{ setModal(false); load() }} />}
-
+        onClose={() => setModal(false)} onSaved={() => { setModal(false); load() }} />}
       {detail && <BrigadeDetailModal brigade={detail} emps={emps}
-        onClose={()=>setDetail(null)} onRefresh={()=>openDetail(detail.id)} onListRefresh={load} />}
+        onClose={() => setDetail(null)}
+        onRefresh={() => openDetail(detail.id)} onListRefresh={load} />}
     </div>
   )
 }
 
-// ── Create/edit form ─────────────────────────────────────────────────
 function BrigadeForm({ editing, emps, onClose, onSaved }) {
-  const [form, setForm] = useState(editing ? {
-    name: editing.name, specialty: editing.specialty || '',
-    is_external: editing.is_external, leader_id: editing.leader_id || '',
-    external_leader_name: editing.external_leader_name || '',
-    external_phone: editing.external_phone || '',
-    notes: editing.notes || '', is_active: editing.is_active,
-  } : {
-    name:'', specialty:'', is_external:false, leader_id:'',
-    external_leader_name:'', external_phone:'', notes:'', is_active:true,
-  })
-  const [memberIds, setMemberIds] = useState(new Set())
+  const [form] = Form.useForm()
+  const [memberIds,    setMemberIds]    = useState([])
   const [memberSearch, setMemberSearch] = useState('')
   const [saving, setSaving] = useState(false)
   const [error,  setError]  = useState('')
+  const [isExternal, setIsExternal] = useState(!!editing?.is_external)
+
+  useEffect(() => {
+    form.setFieldsValue(editing ? {
+      name: editing.name, specialty: editing.specialty || undefined,
+      is_external: editing.is_external, leader_id: editing.leader_id || undefined,
+      external_leader_name: editing.external_leader_name || '',
+      external_phone: editing.external_phone || '', notes: editing.notes || '',
+      is_active: editing.is_active,
+    } : { is_external: false, is_active: true })
+  }, [editing, form])
 
   const filtered = emps.filter(e =>
     !memberSearch || `${e.last_name} ${e.first_name} ${e.emp_code}`.toLowerCase().includes(memberSearch.toLowerCase())
   )
-  const toggleMember = (id) => setMemberIds(s => { const n=new Set(s); n.has(id)?n.delete(id):n.add(id); return n })
 
   const save = async () => {
     setError('')
-    if (!form.name) return setError('Нэр шаардлагатай')
-    if (form.is_external && !form.external_leader_name) return setError('Ахлагчийн нэр шаардлагатай')
-    if (!form.is_external && !form.leader_id) return setError('Ахлагч сонгоно уу')
-
-    setSaving(true)
     try {
+      const v = await form.validateFields()
+      if (v.is_external && !v.external_leader_name) return setError('Ахлагчийн нэр шаардлагатай')
+      if (!v.is_external && !v.leader_id) return setError('Ахлагч сонгоно уу')
+      setSaving(true)
       if (editing) {
-        await api.updateBrigade(editing.id, form)
+        await api.updateBrigade(editing.id, v)
       } else {
-        await api.createBrigade({ ...form, member_ids: Array.from(memberIds) })
+        await api.createBrigade({ ...v, member_ids: memberIds })
       }
-      onSaved()
-    } catch (e) { setError(e.response?.data?.message || 'Алдаа гарлаа') }
-    finally { setSaving(false) }
+      message.success('Хадгалагдлаа'); onSaved()
+    } catch (e) {
+      if (e?.errorFields) return
+      setError(e.response?.data?.message || 'Алдаа гарлаа')
+    } finally { setSaving(false) }
   }
 
   return (
-    <CModal visible={true} onClose={onClose} size="lg" backdrop="static">
-      <CModalHeader><CModalTitle>{editing?'Бригад засах':'Бригад нэмэх'}</CModalTitle></CModalHeader>
-      <CModalBody>
-        {error && <CAlert color="danger" className="py-2 small">{error}</CAlert>}
-        <CForm><CRow className="g-3">
-          <CCol sm={6}><CFormLabel>Нэр *</CFormLabel>
-            <CFormInput value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} /></CCol>
-          <CCol sm={6}><CFormLabel>Мэргэжил</CFormLabel>
-            <CFormSelect value={form.specialty} onChange={e=>setForm(f=>({...f,specialty:e.target.value}))}>
-              <option value="">-- Сонгох --</option>
-              {SPECIALTIES.map(s => <option key={s} value={s}>{s}</option>)}
-            </CFormSelect></CCol>
-          <CCol sm={12}>
-            <CFormCheck label="Гадны (хөлсний) бригад" checked={form.is_external}
-              onChange={e=>setForm(f=>({...f,is_external:e.target.checked,leader_id:''}))} />
-          </CCol>
-
-          {form.is_external ? (<>
-            <CCol sm={6}><CFormLabel>Ахлагчийн нэр *</CFormLabel>
-              <CFormInput value={form.external_leader_name}
-                onChange={e=>setForm(f=>({...f,external_leader_name:e.target.value}))} /></CCol>
-            <CCol sm={6}><CFormLabel>Утас</CFormLabel>
-              <CFormInput value={form.external_phone}
-                onChange={e=>setForm(f=>({...f,external_phone:e.target.value}))} /></CCol>
-          </>) : (
-            <CCol sm={12}><CFormLabel>Бригадын ахлагч *</CFormLabel>
-              <CFormSelect value={form.leader_id} onChange={e=>setForm(f=>({...f,leader_id:e.target.value}))}>
-                <option value="">-- Сонгох --</option>
-                {emps.map(e => <option key={e.id} value={e.id}>{e.emp_code} — {e.last_name} {e.first_name} ({e.position||'—'})</option>)}
-              </CFormSelect>
-            </CCol>
+    <Modal open onOk={save} onCancel={onClose} confirmLoading={saving} width={720}
+      title={editing ? 'Бригад засах' : 'Бригад нэмэх'}
+      okText="Хадгалах" cancelText="Болих" destroyOnClose maskClosable={false}>
+      {error && <Alert type="error" showIcon message={error} style={{ marginBottom: 12 }} />}
+      <Form form={form} layout="vertical" requiredMark={false}>
+        <Row gutter={12}>
+          <Col span={12}><Form.Item name="name" label="Нэр" rules={[{ required: true }]}><Input /></Form.Item></Col>
+          <Col span={12}>
+            <Form.Item name="specialty" label="Мэргэжил">
+              <Select allowClear placeholder="-- Сонгох --"
+                options={SPECIALTIES.map(s => ({ value: s, label: s }))} />
+            </Form.Item>
+          </Col>
+          <Col span={24}>
+            <Form.Item name="is_external" valuePropName="checked">
+              <Checkbox onChange={e => setIsExternal(e.target.checked)}>Гадны (хөлсний) бригад</Checkbox>
+            </Form.Item>
+          </Col>
+          {isExternal ? (
+            <>
+              <Col span={12}><Form.Item name="external_leader_name" label="Ахлагчийн нэр"><Input /></Form.Item></Col>
+              <Col span={12}><Form.Item name="external_phone" label="Утас"><Input /></Form.Item></Col>
+            </>
+          ) : (
+            <Col span={24}>
+              <Form.Item name="leader_id" label="Бригадын ахлагч">
+                <Select showSearch optionFilterProp="label" placeholder="-- Сонгох --"
+                  options={emps.map(e => ({ value: e.id, label: `${e.emp_code} — ${e.last_name} ${e.first_name} (${e.position || '—'})` }))} />
+              </Form.Item>
+            </Col>
           )}
-
-          <CCol sm={12}><CFormLabel>Тэмдэглэл</CFormLabel>
-            <CFormTextarea rows={2} value={form.notes}
-              onChange={e=>setForm(f=>({...f,notes:e.target.value}))} /></CCol>
-
+          <Col span={24}><Form.Item name="notes" label="Тэмдэглэл"><Input.TextArea rows={2} /></Form.Item></Col>
           {editing && (
-            <CCol sm={12}>
-              <CFormCheck label="Идэвхтэй" checked={form.is_active}
-                onChange={e=>setForm(f=>({...f,is_active:e.target.checked}))} />
-            </CCol>
+            <Col span={24}>
+              <Form.Item name="is_active" valuePropName="checked">
+                <Checkbox>Идэвхтэй</Checkbox>
+              </Form.Item>
+            </Col>
           )}
-
-          {!editing && !form.is_external && (
-            <CCol sm={12}>
-              <CCard>
-                <CCardHeader className="d-flex justify-content-between align-items-center">
-                  <div>
-                    <strong>Гишүүн сонгох</strong> <CBadge color="primary" className="ms-2">{memberIds.size}</CBadge>
-                  </div>
-                  <CFormInput size="sm" placeholder="Хайх..." value={memberSearch}
-                    onChange={e=>setMemberSearch(e.target.value)} style={{maxWidth:200}} />
-                </CCardHeader>
-                <div style={{maxHeight:240, overflowY:'auto'}}>
-                  <CTable small hover className="mb-0">
-                    <CTableBody>
-                      {filtered.slice(0, 100).map(e => (
-                        <CTableRow key={e.id} active={memberIds.has(e.id)} onClick={()=>toggleMember(e.id)} style={{cursor:'pointer'}}>
-                          <CTableDataCell style={{width:40}}><CFormCheck checked={memberIds.has(e.id)} onChange={()=>toggleMember(e.id)} /></CTableDataCell>
-                          <CTableDataCell>{e.emp_code}</CTableDataCell>
-                          <CTableDataCell>{e.last_name} {e.first_name}</CTableDataCell>
-                          <CTableDataCell className="text-medium-emphasis">{e.position||'—'}</CTableDataCell>
-                        </CTableRow>
-                      ))}
-                    </CTableBody>
-                  </CTable>
-                </div>
-              </CCard>
-            </CCol>
+          {!editing && !isExternal && (
+            <Col span={24}>
+              <Card size="small" title={<>Гишүүн сонгох <Tag color="blue">{memberIds.length}</Tag></>}
+                extra={<Input size="small" placeholder="Хайх..." value={memberSearch}
+                  onChange={e => setMemberSearch(e.target.value)} prefix={<SearchOutlined />} style={{ width: 200 }} />}>
+                <Table rowKey="id" size="small" showHeader={false}
+                  columns={[
+                    { dataIndex: 'emp_code', width: 90 },
+                    { render: (_, e) => `${e.last_name} ${e.first_name}` },
+                    { dataIndex: 'position', render: v => <span style={{ color: '#8c8c8c' }}>{v || '—'}</span> },
+                  ]}
+                  dataSource={filtered.slice(0, 100)} scroll={{ y: 240 }}
+                  pagination={false}
+                  rowSelection={{ selectedRowKeys: memberIds, onChange: setMemberIds }} />
+              </Card>
+            </Col>
           )}
-        </CRow></CForm>
-      </CModalBody>
-      <CModalFooter>
-        <CButton color="secondary" onClick={onClose}>Болих</CButton>
-        <CButton color="primary" onClick={save} disabled={saving}>
-          {saving ? <CSpinner size="sm" /> : 'Хадгалах'}
-        </CButton>
-      </CModalFooter>
-    </CModal>
+        </Row>
+      </Form>
+    </Modal>
   )
 }
 
-// ── Brigade detail with members ──────────────────────────────────────
 function BrigadeDetailModal({ brigade, emps, onClose, onRefresh, onListRefresh }) {
   const [addMode, setAddMode] = useState(false)
-  const [pick,    setPick]    = useState(new Set())
+  const [pick,    setPick]    = useState([])
   const [search,  setSearch]  = useState('')
   const [adding,  setAdding]  = useState(false)
 
-  const existingIds = new Set((brigade.members||[]).filter(m=>!m.left_at).map(m => m.employee_id))
+  const existingIds = new Set((brigade.members || []).filter(m => !m.left_at).map(m => m.employee_id))
   const candidates = emps.filter(e => !existingIds.has(e.id))
     .filter(e => !search || `${e.last_name} ${e.first_name} ${e.emp_code}`.toLowerCase().includes(search.toLowerCase()))
 
-  const toggle = (id) => setPick(s => { const n=new Set(s); n.has(id)?n.delete(id):n.add(id); return n })
   const doAdd = async () => {
     setAdding(true)
     try {
-      await api.addBrigadeMembers(brigade.id, { employee_ids: Array.from(pick) })
-      setAddMode(false); setPick(new Set()); onRefresh(); onListRefresh()
+      await api.addBrigadeMembers(brigade.id, { employee_ids: pick })
+      setAddMode(false); setPick([]); onRefresh(); onListRefresh()
+      message.success('Нэмэгдлээ')
     } finally { setAdding(false) }
   }
   const removeMember = async (mid) => {
-    if (!window.confirm('Бригадаас хасах уу?')) return
     await api.removeBrigadeMember(mid); onRefresh(); onListRefresh()
+    message.success('Хасагдлаа')
   }
 
-  const activeMembers = (brigade.members||[]).filter(m => !m.left_at)
+  const active = (brigade.members || []).filter(m => !m.left_at)
 
   return (
-    <CModal visible={true} onClose={onClose} size="lg" backdrop="static">
-      <CModalHeader>
-        <CModalTitle>{brigade.name} {brigade.is_external && <CBadge color="info" className="ms-2">Гадны</CBadge>}</CModalTitle>
-      </CModalHeader>
-      <CModalBody>
-        <CRow className="g-2 mb-3">
-          <CCol sm={4}><div className="small text-medium-emphasis">Мэргэжил</div><div>{brigade.specialty||'—'}</div></CCol>
-          <CCol sm={4}><div className="small text-medium-emphasis">Ахлагч</div><div className="fw-semibold">{brigade.leader_name||'—'}</div></CCol>
-          <CCol sm={4}><div className="small text-medium-emphasis">{brigade.is_external?'Утас':'Ахлагчийн код'}</div>
-            <div>{brigade.is_external ? brigade.external_phone : brigade.leader_code}</div></CCol>
-        </CRow>
-        {brigade.notes && <div className="alert alert-secondary py-2 mb-3 small">{brigade.notes}</div>}
+    <Modal open onCancel={onClose} width={860}
+      title={<>{brigade.name} {brigade.is_external && <Tag color="cyan">Гадны</Tag>}</>}
+      footer={<Button onClick={onClose}>Хаах</Button>}>
+      <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
+        <Col span={8}>
+          <div style={{ color: '#8c8c8c', fontSize: 12 }}>Мэргэжил</div>
+          <div>{brigade.specialty || '—'}</div>
+        </Col>
+        <Col span={8}>
+          <div style={{ color: '#8c8c8c', fontSize: 12 }}>Ахлагч</div>
+          <div style={{ fontWeight: 600 }}>{brigade.leader_name || '—'}</div>
+        </Col>
+        <Col span={8}>
+          <div style={{ color: '#8c8c8c', fontSize: 12 }}>{brigade.is_external ? 'Утас' : 'Ахлагчийн код'}</div>
+          <div>{brigade.is_external ? brigade.external_phone : brigade.leader_code}</div>
+        </Col>
+      </Row>
+      {brigade.notes && <Alert type="info" message={brigade.notes} style={{ marginBottom: 12 }} />}
 
-        {!brigade.is_external && (
-          <CCard>
-            <CCardHeader className="d-flex justify-content-between align-items-center">
-              <strong>Гишүүд ({activeMembers.length})</strong>
-              {!addMode && <CButton size="sm" color="primary" onClick={()=>setAddMode(true)}>+ Гишүүн нэмэх</CButton>}
-            </CCardHeader>
-            <div style={{maxHeight:360, overflowY:'auto'}}>
-              {addMode ? (<>
-                <div className="p-2 d-flex gap-2 align-items-center bg-body-tertiary">
-                  <CFormInput size="sm" placeholder="Хайх..." value={search} onChange={e=>setSearch(e.target.value)} style={{maxWidth:240}} />
-                  <CBadge color="primary">{pick.size}</CBadge>
-                  <div className="ms-auto">
-                    <CButton size="sm" color="secondary" variant="outline" className="me-2" onClick={()=>{setAddMode(false); setPick(new Set())}}>Болих</CButton>
-                    <CButton size="sm" color="primary" onClick={doAdd} disabled={pick.size===0||adding}>
-                      {adding?<CSpinner size="sm"/>:`Нэмэх (${pick.size})`}
-                    </CButton>
-                  </div>
+      {!brigade.is_external && (
+        <Card size="small" title={`Гишүүд (${active.length})`}
+          extra={!addMode && <Button size="small" type="primary" icon={<PlusOutlined />} onClick={() => setAddMode(true)}>Гишүүн нэмэх</Button>}>
+          {addMode ? (
+            <>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+                <Input size="small" placeholder="Хайх..." value={search}
+                  onChange={e => setSearch(e.target.value)} prefix={<SearchOutlined />} style={{ maxWidth: 240 }} />
+                <Tag color="blue">{pick.length}</Tag>
+                <div style={{ marginLeft: 'auto' }}>
+                  <Space>
+                    <Button size="small" onClick={() => { setAddMode(false); setPick([]) }}>Болих</Button>
+                    <Button size="small" type="primary" onClick={doAdd} loading={adding} disabled={pick.length === 0}>
+                      Нэмэх ({pick.length})
+                    </Button>
+                  </Space>
                 </div>
-                <CTable small hover className="mb-0">
-                  <CTableBody>
-                    {candidates.map(e => (
-                      <CTableRow key={e.id} onClick={()=>toggle(e.id)} style={{cursor:'pointer'}} active={pick.has(e.id)}>
-                        <CTableDataCell style={{width:40}}><CFormCheck checked={pick.has(e.id)} onChange={()=>toggle(e.id)} /></CTableDataCell>
-                        <CTableDataCell>{e.emp_code}</CTableDataCell>
-                        <CTableDataCell>{e.last_name} {e.first_name}</CTableDataCell>
-                        <CTableDataCell className="text-medium-emphasis">{e.position||'—'}</CTableDataCell>
-                      </CTableRow>
-                    ))}
-                  </CTableBody>
-                </CTable>
-              </>) : (
-                <CTable small hover className="mb-0">
-                  <CTableHead>
-                    <CTableRow>
-                      <CTableHeaderCell>Код</CTableHeaderCell>
-                      <CTableHeaderCell>Нэр</CTableHeaderCell>
-                      <CTableHeaderCell>Хэлтэс</CTableHeaderCell>
-                      <CTableHeaderCell>Албан тушаал</CTableHeaderCell>
-                      <CTableHeaderCell>Орсон</CTableHeaderCell>
-                      <CTableHeaderCell></CTableHeaderCell>
-                    </CTableRow>
-                  </CTableHead>
-                  <CTableBody>
-                    {activeMembers.map(m => (
-                      <CTableRow key={m.id}>
-                        <CTableDataCell>{m.emp_code}</CTableDataCell>
-                        <CTableDataCell className="fw-semibold">{m.full_name}</CTableDataCell>
-                        <CTableDataCell>{m.department||'—'}</CTableDataCell>
-                        <CTableDataCell>{m.position||'—'}</CTableDataCell>
-                        <CTableDataCell className="small">{m.joined_at ? dayjs(m.joined_at).format('YYYY-MM-DD') : '—'}</CTableDataCell>
-                        <CTableDataCell><CButton size="sm" color="danger" variant="outline" onClick={()=>removeMember(m.id)}>X</CButton></CTableDataCell>
-                      </CTableRow>
-                    ))}
-                    {activeMembers.length===0 && (
-                      <CTableRow>
-                        <CTableDataCell colSpan={6} className="text-center text-medium-emphasis py-3">Гишүүн алга</CTableDataCell>
-                      </CTableRow>
-                    )}
-                  </CTableBody>
-                </CTable>
-              )}
-            </div>
-          </CCard>
-        )}
-      </CModalBody>
-      <CModalFooter>
-        <CButton color="secondary" onClick={onClose}>Хаах</CButton>
-      </CModalFooter>
-    </CModal>
+              </div>
+              <Table rowKey="id" size="small" columns={[
+                  { title: 'Код', dataIndex: 'emp_code', width: 90 },
+                  { title: 'Нэр', render: (_, e) => `${e.last_name} ${e.first_name}` },
+                  { title: 'Албан тушаал', dataIndex: 'position', render: v => v || '—' },
+                ]}
+                dataSource={candidates} scroll={{ y: 280 }} pagination={{ pageSize: 50, hideOnSinglePage: true }}
+                rowSelection={{ selectedRowKeys: pick, onChange: setPick }} />
+            </>
+          ) : (
+            <Table rowKey="id" size="small" columns={[
+                { title: 'Код', dataIndex: 'emp_code', width: 90 },
+                { title: 'Нэр', dataIndex: 'full_name', render: v => <strong>{v}</strong> },
+                { title: 'Хэлтэс', dataIndex: 'department', render: v => v || '—' },
+                { title: 'Албан тушаал', dataIndex: 'position', render: v => v || '—' },
+                { title: 'Орсон', dataIndex: 'joined_at', width: 110,
+                  render: v => v ? dayjs(v).format('YYYY-MM-DD') : '—' },
+                { title: '', width: 60, render: (_, m) => (
+                  <Popconfirm title="Бригадаас хасах уу?" onConfirm={() => removeMember(m.id)} okText="Тийм" cancelText="Үгүй">
+                    <Button size="small" danger>×</Button>
+                  </Popconfirm>
+                ) },
+              ]}
+              dataSource={active} scroll={{ y: 280 }} pagination={{ pageSize: 50, hideOnSinglePage: true }}
+              locale={{ emptyText: 'Гишүүн алга' }} />
+          )}
+        </Card>
+      )}
+    </Modal>
   )
 }

@@ -1,260 +1,245 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react'
+import React, { useEffect, useState, useCallback } from 'react'
 import {
-  CButton, CCard, CCardBody, CCardHeader, CBadge, CSpinner, CRow, CCol,
-  CFormInput, CFormSelect, CFormLabel, CNav, CNavItem, CNavLink,
-  CTabContent, CTabPane,
-  CModal, CModalHeader, CModalTitle, CModalBody, CModalFooter,
-  CForm,
-} from '@coreui/react'
-import { AgGridReact } from 'ag-grid-react'
-import { useGridTheme, defaultColDef, makeServerDatasource } from 'src/utils/agGrid'
+  Row, Col, Card, Table, Tag, Button, Modal, Form, Input, Select, Space,
+  Tabs, Popconfirm, Statistic, message,
+} from 'antd'
+import { PlusOutlined, RollbackOutlined } from '@ant-design/icons'
 import api from 'src/services/api'
 import dayjs from 'dayjs'
 
-const STATUS_COLOR = { available:'success', checked_out:'warning', lost:'danger', damaged:'secondary' }
-const STATUS_LABEL = { available:'Бэлэн', checked_out:'Авагдсан', lost:'Алдсан', damaged:'Эвдрэлтэй' }
+const STATUS_COLOR = { available: 'success', checked_out: 'orange', lost: 'red', damaged: 'default' }
+const STATUS_LABEL = { available: 'Бэлэн', checked_out: 'Авагдсан', lost: 'Алдсан', damaged: 'Эвдрэлтэй' }
 
 export default function Tools() {
-  const gridTheme = useGridTheme()
-  const [tab,      setTab]     = useState('inventory')
-  const [stats,    setStats]   = useState(null)
-  const [emps,     setEmps]    = useState([])
-  const toolsRef = useRef(), coRef = useRef()
+  const [tab,    setTab]   = useState('inventory')
+  const [stats,  setStats] = useState(null)
+  const [emps,   setEmps]  = useState([])
 
-  const [search,   setSearch]   = useState('')
-  const [statusF,  setStatusF]  = useState('')
-  const [coStatus, setCoStatus] = useState('open')
+  const [tools,       setTools]       = useState([])
+  const [toolLoading, setToolLoading] = useState(false)
+  const [toolPage,    setToolPage]    = useState({ current: 1, pageSize: 25, total: 0 })
+  const [search,      setSearch]      = useState('')
+  const [statusF,     setStatusF]     = useState()
 
-  // Modal: create/edit tool
+  const [cos,       setCos]       = useState([])
+  const [coLoading, setCoLoading] = useState(false)
+  const [coPage,    setCoPage]    = useState({ current: 1, pageSize: 25, total: 0 })
+  const [coStatus,  setCoStatus]  = useState('open')
+
   const [tModal,   setTModal]   = useState(false)
-  const [tForm,    setTForm]    = useState({ code:'', name:'', rfid_tag:'', category:'', storekeeper_id:'' })
+  const [tForm]    = Form.useForm()
   const [tEditing, setTEditing] = useState(null)
   const [tSaving,  setTSaving]  = useState(false)
 
-  // Modal: checkout
   const [coModal,  setCoModal]  = useState(false)
-  const [coForm,   setCoForm]   = useState({ tool_id:'', employee_id:'', storekeeper_id:'' })
+  const [coForm]   = Form.useForm()
   const [coSaving, setCoSaving] = useState(false)
 
+  const refreshStats = () => api.getToolStats().then(r => setStats(r.data))
   useEffect(() => {
-    api.getToolStats().then(r => setStats(r.data))
-    api.getEmployees({ status:'active', limit:500 }).then(r => setEmps(r.data || []))
+    refreshStats()
+    api.getEmployees({ status: 'active', limit: 500 }).then(r => setEmps(r.data || []))
   }, [])
 
-  const refreshTools = useCallback(() => {
-    const ds = makeServerDatasource(({ page, limit }) =>
-      api.getTools({ page, limit, search: search || undefined, status: statusF || undefined }))
-    toolsRef.current?.api?.setGridOption('datasource', ds)
+  const loadTools = useCallback((page = 1, limit = 25) => {
+    setToolLoading(true)
+    api.getTools({ page, limit, search: search || undefined, status: statusF || undefined })
+      .then(r => {
+        setTools(r.data || [])
+        setToolPage({ current: page, pageSize: limit, total: r.total || (r.data || []).length })
+      }).finally(() => setToolLoading(false))
   }, [search, statusF])
-  const refreshCheckouts = useCallback(() => {
-    const ds = makeServerDatasource(({ page, limit }) =>
-      api.getCheckouts({ page, limit, status: coStatus || undefined }))
-    coRef.current?.api?.setGridOption('datasource', ds)
-  }, [coStatus])
-  useEffect(() => { if (tab==='inventory') refreshTools() }, [tab, refreshTools])
-  useEffect(() => { if (tab==='checkouts') refreshCheckouts() }, [tab, refreshCheckouts])
 
-  const openCreate = () => { setTEditing(null); setTForm({ code:'', name:'', rfid_tag:'', category:'', storekeeper_id:'' }); setTModal(true) }
-  const openEdit   = (r) => {
+  const loadCos = useCallback((page = 1, limit = 25) => {
+    setCoLoading(true)
+    api.getCheckouts({ page, limit, status: coStatus || undefined })
+      .then(r => {
+        setCos(r.data || [])
+        setCoPage({ current: page, pageSize: limit, total: r.total || (r.data || []).length })
+      }).finally(() => setCoLoading(false))
+  }, [coStatus])
+
+  useEffect(() => { if (tab === 'inventory') loadTools(1, toolPage.pageSize) /* eslint-disable-next-line */}, [tab, statusF])
+  useEffect(() => { if (tab === 'checkouts') loadCos(1, coPage.pageSize) /* eslint-disable-next-line */}, [tab, coStatus])
+
+  const openToolCreate = () => { setTEditing(null); tForm.resetFields(); setTModal(true) }
+  const openToolEdit = (r) => {
     setTEditing(r.id)
-    setTForm({ code:r.code, name:r.name, rfid_tag:r.rfid_tag, category:r.category||'', storekeeper_id:r.storekeeper_id||'' })
+    tForm.setFieldsValue({
+      code: r.code, name: r.name, rfid_tag: r.rfid_tag,
+      category: r.category || '', storekeeper_id: r.storekeeper_id || undefined,
+    })
     setTModal(true)
   }
   const saveTool = async () => {
-    setTSaving(true)
     try {
-      const payload = { ...tForm, storekeeper_id: tForm.storekeeper_id || null }
+      const v = await tForm.validateFields()
+      setTSaving(true)
+      const payload = { ...v, storekeeper_id: v.storekeeper_id || null }
       tEditing ? await api.updateTool(tEditing, payload) : await api.createTool(payload)
-      setTModal(false); refreshTools(); api.getToolStats().then(r=>setStats(r.data))
-    } finally { setTSaving(false) }
+      setTModal(false); loadTools(toolPage.current, toolPage.pageSize); refreshStats()
+      message.success('Хадгалагдлаа')
+    } catch (e) { if (e?.errorFields) return }
+    finally { setTSaving(false) }
   }
 
-  const openCheckout = () => { setCoForm({ tool_id:'', employee_id:'', storekeeper_id:'' }); setCoModal(true) }
+  const openCheckout = () => { coForm.resetFields(); setCoModal(true) }
   const saveCheckout = async () => {
-    setCoSaving(true)
     try {
-      await api.checkoutTool({ ...coForm, storekeeper_id: coForm.storekeeper_id || null })
-      setCoModal(false); refreshCheckouts(); refreshTools()
-      api.getToolStats().then(r=>setStats(r.data))
-    } finally { setCoSaving(false) }
+      const v = await coForm.validateFields()
+      setCoSaving(true)
+      await api.checkoutTool({ ...v, storekeeper_id: v.storekeeper_id || null })
+      setCoModal(false)
+      loadTools(toolPage.current, toolPage.pageSize); loadCos(coPage.current, coPage.pageSize); refreshStats()
+      message.success('Олголт бүртгэгдлээ')
+    } catch (e) { if (e?.errorFields) return }
+    finally { setCoSaving(false) }
   }
   const returnTool = async (id) => {
-    if (!window.confirm('Багажийг буцаасан гэж тэмдэглэх үү?')) return
     await api.returnTool(id, {})
-    refreshCheckouts(); refreshTools(); api.getToolStats().then(r=>setStats(r.data))
+    loadCos(coPage.current, coPage.pageSize); loadTools(toolPage.current, toolPage.pageSize); refreshStats()
+    message.success('Буцаагдлаа')
   }
 
   const toolCols = [
-    { field:'code', headerName:'Код', width:120 },
-    { field:'name', headerName:'Нэр', flex:1 },
-    { field:'category', headerName:'Ангилал', width:130 },
-    { field:'rfid_tag', headerName:'RFID', width:160, cellRenderer: p => <code>{p.value}</code> },
-    { field:'storekeeper_name', headerName:'Нярав', width:160 },
-    { field:'status', headerName:'Төлөв', width:130,
-      cellRenderer: p => <CBadge color={STATUS_COLOR[p.value]||'secondary'}>{STATUS_LABEL[p.value]||p.value}</CBadge> },
-    { field:'current_holder', headerName:'Авсан хүн', flex:1,
-      valueGetter: p => p.data?.current_holder?.employee_name || '—' },
-    { headerName:'Үйлдэл', width:100, sortable:false,
-      cellRenderer: p => <CButton size="sm" color="primary" variant="outline" onClick={()=>openEdit(p.data)}>Засах</CButton> },
+    { title: 'Код', dataIndex: 'code', width: 110 },
+    { title: 'Нэр', dataIndex: 'name' },
+    { title: 'Ангилал', dataIndex: 'category', width: 130, render: v => v || '—' },
+    { title: 'RFID', dataIndex: 'rfid_tag', width: 160, render: v => <code>{v}</code> },
+    { title: 'Нярав', dataIndex: 'storekeeper_name', width: 140, render: v => v || '—' },
+    { title: 'Төлөв', dataIndex: 'status', width: 120,
+      render: v => <Tag color={STATUS_COLOR[v] || 'default'}>{STATUS_LABEL[v] || v}</Tag> },
+    { title: 'Авсан хүн', width: 160,
+      render: (_, r) => r.current_holder?.employee_name || '—' },
+    { title: '', width: 90, render: (_, r) => (
+      <Button size="small" onClick={() => openToolEdit(r)}>Засах</Button>
+    ) },
   ]
 
   const coCols = [
-    { field:'checked_out_at', headerName:'Авсан', width:150,
-      valueFormatter: p => p.value ? dayjs(p.value).format('MM-DD HH:mm') : '' },
-    { field:'tool_code', headerName:'Багаж', width:120 },
-    { field:'tool_name', headerName:'', flex:1 },
-    { field:'emp_code', headerName:'Код', width:90 },
-    { field:'full_name', headerName:'Авсан хүн', flex:1 },
-    { field:'storekeeper_name', headerName:'Нярав', width:140 },
-    { field:'returned_at', headerName:'Буцаасан', width:150,
-      valueFormatter: p => p.value ? dayjs(p.value).format('MM-DD HH:mm') : '—' },
-    { headerName:'Үйлдэл', width:100, sortable:false,
-      cellRenderer: p => p.data?.returned_at
-        ? <CBadge color="success">Буцаагдсан</CBadge>
-        : <CButton size="sm" color="success" variant="outline" onClick={()=>returnTool(p.data.id)}>Буцаах</CButton> },
+    { title: 'Авсан', dataIndex: 'checked_out_at', width: 130,
+      render: v => v ? dayjs(v).format('MM-DD HH:mm') : '—' },
+    { title: 'Код', dataIndex: 'tool_code', width: 100 },
+    { title: 'Багаж', dataIndex: 'tool_name' },
+    { title: 'Ажилтан', dataIndex: 'full_name',
+      render: (v, r) => `${r.emp_code || ''} ${v || ''}` },
+    { title: 'Нярав', dataIndex: 'storekeeper_name', width: 140, render: v => v || '—' },
+    { title: 'Буцаасан', dataIndex: 'returned_at', width: 130,
+      render: v => v ? dayjs(v).format('MM-DD HH:mm') : '—' },
+    { title: '', width: 110, render: (_, r) => r.returned_at
+      ? <Tag color="success">Буцаагдсан</Tag>
+      : <Popconfirm title="Багажийг буцаагдсан гэж тэмдэглэх үү?" onConfirm={() => returnTool(r.id)} okText="Тийм" cancelText="Үгүй">
+          <Button size="small" type="primary" ghost icon={<RollbackOutlined />}>Буцаах</Button>
+        </Popconfirm> },
+  ]
+
+  const items = [
+    { key: 'inventory', label: 'Багажийн жагсаалт', children: (
+      <Card>
+        <Row gutter={8} style={{ marginBottom: 12 }}>
+          <Col xs={24} sm={10}>
+            <Input.Search placeholder="Хайх..." value={search}
+              onChange={e => setSearch(e.target.value)} onSearch={() => loadTools(1, toolPage.pageSize)}
+              allowClear enterButton />
+          </Col>
+          <Col xs={24} sm={6}>
+            <Select value={statusF} onChange={setStatusF} allowClear
+              placeholder="Бүх төлөв" style={{ width: '100%' }}
+              options={Object.entries(STATUS_LABEL).map(([k, l]) => ({ value: k, label: l }))} />
+          </Col>
+        </Row>
+        <Table rowKey="id" size="middle" loading={toolLoading}
+          columns={toolCols} dataSource={tools}
+          pagination={{ ...toolPage, onChange: (p, s) => loadTools(p, s) }} />
+      </Card>
+    ) },
+    { key: 'checkouts', label: 'Олголт / Буцаалт', children: (
+      <Card>
+        <Row gutter={8} style={{ marginBottom: 12 }}>
+          <Col xs={24} sm={6}>
+            <Select value={coStatus} onChange={setCoStatus} style={{ width: '100%' }}
+              options={[
+                { value: 'open',   label: 'Идэвхтэй' },
+                { value: 'closed', label: 'Буцаагдсан' },
+                { value: '',       label: 'Бүгд' },
+              ]} />
+          </Col>
+        </Row>
+        <Table rowKey="id" size="middle" loading={coLoading}
+          columns={coCols} dataSource={cos}
+          pagination={{ ...coPage, onChange: (p, s) => loadCos(p, s) }} />
+      </Card>
+    ) },
   ]
 
   return (
-    <div className="p-3">
-      <div className="d-flex justify-content-between align-items-center mb-3">
-        <h4 className="fw-bold mb-0">Багаж хэрэгсэл</h4>
-        <div>
-          <CButton color="success" className="me-2" onClick={openCheckout}>+ Багаж олгох</CButton>
-          <CButton color="primary" onClick={openCreate}>+ Багаж нэмэх</CButton>
-        </div>
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <h4 style={{ margin: 0, fontWeight: 700 }}>Багаж хэрэгсэл</h4>
+        <Space>
+          <Button icon={<PlusOutlined />} onClick={openCheckout}>Багаж олгох</Button>
+          <Button type="primary" icon={<PlusOutlined />} onClick={openToolCreate}>Багаж нэмэх</Button>
+        </Space>
       </div>
 
       {stats && (
-        <CRow className="g-2 mb-3">
-          {[['Нийт', stats.total,'primary'],['Бэлэн', stats.available,'success'],
-            ['Авагдсан', stats.checked_out,'warning'],['Алдсан', stats.lost,'danger'],
-            ['Эвдрэлтэй', stats.damaged,'secondary']].map(([l,v,c]) => (
-            <CCol key={l} xs={6} sm={2}>
-              <CCard><CCardBody className="py-2 text-center">
-                <div className="small text-medium-emphasis">{l}</div>
-                <div className={`fw-bold fs-4 text-${c}`}>{v ?? 0}</div>
-              </CCardBody></CCard>
-            </CCol>
+        <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
+          {[
+            ['Нийт',      stats.total,       '#1890ff'],
+            ['Бэлэн',     stats.available,   '#52c41a'],
+            ['Авагдсан',  stats.checked_out, '#faad14'],
+            ['Алдсан',    stats.lost,        '#cf1322'],
+            ['Эвдрэлтэй', stats.damaged,     '#8c8c8c'],
+          ].map(([l, v, c]) => (
+            <Col key={l} xs={12} sm={4} md={4}>
+              <Card size="small" style={{ textAlign: 'center' }}>
+                <Statistic title={l} value={v ?? 0} valueStyle={{ color: c, fontWeight: 700 }} />
+              </Card>
+            </Col>
           ))}
-        </CRow>
+        </Row>
       )}
 
-      <CNav variant="tabs" className="mb-3">
-        {[['inventory','Багажийн жагсаалт'],['checkouts','Олголт/Буцаалт']].map(([k,l]) => (
-          <CNavItem key={k}>
-            <CNavLink active={tab===k} onClick={()=>setTab(k)} style={{cursor:'pointer'}}>{l}</CNavLink>
-          </CNavItem>
-        ))}
-      </CNav>
+      <Tabs activeKey={tab} onChange={setTab} items={items} />
 
-      <CTabContent>
-        <CTabPane visible={tab==='inventory'}>
-          <CCard>
-            <CCardHeader>
-              <CRow className="g-2">
-                <CCol sm={4}><CFormInput placeholder="Хайх..." value={search}
-                  onChange={e=>setSearch(e.target.value)} onKeyDown={e=>e.key==='Enter'&&refreshTools()} /></CCol>
-                <CCol sm={3}>
-                  <CFormSelect value={statusF} onChange={e=>setStatusF(e.target.value)}>
-                    <option value="">Бүх төлөв</option>
-                    {Object.entries(STATUS_LABEL).map(([k,l]) => <option key={k} value={k}>{l}</option>)}
-                  </CFormSelect>
-                </CCol>
-              </CRow>
-            </CCardHeader>
-            <CCardBody className="p-0">
-              <div style={{ height: 540, width:'100%' }}>
-                <AgGridReact ref={toolsRef} theme={gridTheme} rowModelType="infinite"
-                  columnDefs={toolCols} defaultColDef={defaultColDef} cacheBlockSize={25}
-                  onGridReady={refreshTools} />
-              </div>
-            </CCardBody>
-          </CCard>
-        </CTabPane>
+      <Modal open={tModal} onOk={saveTool} onCancel={() => setTModal(false)}
+        title={tEditing ? 'Багаж засах' : 'Багаж нэмэх'} confirmLoading={tSaving}
+        okText="Хадгалах" cancelText="Болих" destroyOnClose>
+        <Form form={tForm} layout="vertical" requiredMark={false}>
+          <Row gutter={12}>
+            <Col span={12}><Form.Item name="code" label="Код" rules={[{ required: true }]}><Input /></Form.Item></Col>
+            <Col span={12}><Form.Item name="category" label="Ангилал"><Input /></Form.Item></Col>
+            <Col span={24}><Form.Item name="name" label="Нэр" rules={[{ required: true }]}><Input /></Form.Item></Col>
+            <Col span={24}><Form.Item name="rfid_tag" label="RFID tag" rules={[{ required: true }]}><Input /></Form.Item></Col>
+            <Col span={24}>
+              <Form.Item name="storekeeper_id" label="Нярав">
+                <Select allowClear showSearch optionFilterProp="label" placeholder="-- Сонгох --"
+                  options={emps.filter(e => e.position === 'Нярав').map(e => ({
+                    value: e.id, label: `${e.emp_code} — ${e.last_name} ${e.first_name}` }))} />
+              </Form.Item>
+            </Col>
+          </Row>
+        </Form>
+      </Modal>
 
-        <CTabPane visible={tab==='checkouts'}>
-          <CCard>
-            <CCardHeader>
-              <CRow className="g-2">
-                <CCol sm={3}>
-                  <CFormSelect value={coStatus} onChange={e=>setCoStatus(e.target.value)}>
-                    <option value="open">Идэвхтэй</option>
-                    <option value="closed">Буцаагдсан</option>
-                    <option value="">Бүгд</option>
-                  </CFormSelect>
-                </CCol>
-              </CRow>
-            </CCardHeader>
-            <CCardBody className="p-0">
-              <div style={{ height: 540, width:'100%' }}>
-                <AgGridReact ref={coRef} theme={gridTheme} rowModelType="infinite"
-                  columnDefs={coCols} defaultColDef={defaultColDef} cacheBlockSize={25}
-                  onGridReady={refreshCheckouts} />
-              </div>
-            </CCardBody>
-          </CCard>
-        </CTabPane>
-      </CTabContent>
-
-      {/* Tool create/edit modal */}
-      <CModal visible={tModal} onClose={()=>setTModal(false)}>
-        <CModalHeader><CModalTitle>{tEditing?'Багаж засах':'Багаж нэмэх'}</CModalTitle></CModalHeader>
-        <CModalBody>
-          <CForm><CRow className="g-3">
-            <CCol sm={6}><CFormLabel>Код *</CFormLabel>
-              <CFormInput value={tForm.code} onChange={e=>setTForm(f=>({...f,code:e.target.value}))} /></CCol>
-            <CCol sm={6}><CFormLabel>Ангилал</CFormLabel>
-              <CFormInput value={tForm.category} onChange={e=>setTForm(f=>({...f,category:e.target.value}))} /></CCol>
-            <CCol sm={12}><CFormLabel>Нэр *</CFormLabel>
-              <CFormInput value={tForm.name} onChange={e=>setTForm(f=>({...f,name:e.target.value}))} /></CCol>
-            <CCol sm={12}><CFormLabel>RFID tag *</CFormLabel>
-              <CFormInput value={tForm.rfid_tag} onChange={e=>setTForm(f=>({...f,rfid_tag:e.target.value}))} /></CCol>
-            <CCol sm={12}><CFormLabel>Нярав</CFormLabel>
-              <CFormSelect value={tForm.storekeeper_id} onChange={e=>setTForm(f=>({...f,storekeeper_id:e.target.value}))}>
-                <option value="">-- Сонгох --</option>
-                {emps.filter(e=>e.position==='Нярав').map(e =>
-                  <option key={e.id} value={e.id}>{e.emp_code} — {e.last_name} {e.first_name}</option>)}
-              </CFormSelect>
-            </CCol>
-          </CRow></CForm>
-        </CModalBody>
-        <CModalFooter>
-          <CButton color="secondary" onClick={()=>setTModal(false)}>Болих</CButton>
-          <CButton color="primary" onClick={saveTool} disabled={tSaving || !tForm.code || !tForm.name || !tForm.rfid_tag}>
-            {tSaving ? <CSpinner size="sm" /> : 'Хадгалах'}
-          </CButton>
-        </CModalFooter>
-      </CModal>
-
-      {/* Checkout modal */}
-      <CModal visible={coModal} onClose={()=>setCoModal(false)}>
-        <CModalHeader><CModalTitle>Багаж олгох</CModalTitle></CModalHeader>
-        <CModalBody>
-          <CForm><CRow className="g-3">
-            <CCol sm={12}><CFormLabel>Багаж (ID эсвэл код)</CFormLabel>
-              <CFormInput value={coForm.tool_id} onChange={e=>setCoForm(f=>({...f,tool_id:e.target.value}))} placeholder="Багаж ID" /></CCol>
-            <CCol sm={12}><CFormLabel>Авах хүн *</CFormLabel>
-              <CFormSelect value={coForm.employee_id} onChange={e=>setCoForm(f=>({...f,employee_id:e.target.value}))}>
-                <option value="">-- Сонгох --</option>
-                {emps.map(e => <option key={e.id} value={e.id}>{e.emp_code} — {e.last_name} {e.first_name}</option>)}
-              </CFormSelect>
-            </CCol>
-            <CCol sm={12}><CFormLabel>Нярав</CFormLabel>
-              <CFormSelect value={coForm.storekeeper_id} onChange={e=>setCoForm(f=>({...f,storekeeper_id:e.target.value}))}>
-                <option value="">-- Сонгох --</option>
-                {emps.filter(e=>e.position==='Нярав').map(e =>
-                  <option key={e.id} value={e.id}>{e.emp_code} — {e.last_name} {e.first_name}</option>)}
-              </CFormSelect>
-            </CCol>
-          </CRow></CForm>
-        </CModalBody>
-        <CModalFooter>
-          <CButton color="secondary" onClick={()=>setCoModal(false)}>Болих</CButton>
-          <CButton color="success" onClick={saveCheckout} disabled={coSaving || !coForm.tool_id || !coForm.employee_id}>
-            {coSaving ? <CSpinner size="sm" /> : 'Олгох'}
-          </CButton>
-        </CModalFooter>
-      </CModal>
+      <Modal open={coModal} onOk={saveCheckout} onCancel={() => setCoModal(false)}
+        title="Багаж олгох" confirmLoading={coSaving}
+        okText="Олгох" cancelText="Болих" destroyOnClose>
+        <Form form={coForm} layout="vertical" requiredMark={false}>
+          <Form.Item name="tool_id" label="Багаж (ID)" rules={[{ required: true }]}>
+            <Input placeholder="Багаж ID" />
+          </Form.Item>
+          <Form.Item name="employee_id" label="Авах хүн" rules={[{ required: true }]}>
+            <Select showSearch optionFilterProp="label" placeholder="-- Сонгох --"
+              options={emps.map(e => ({ value: e.id, label: `${e.emp_code} — ${e.last_name} ${e.first_name}` }))} />
+          </Form.Item>
+          <Form.Item name="storekeeper_id" label="Нярав">
+            <Select allowClear showSearch optionFilterProp="label" placeholder="-- Сонгох --"
+              options={emps.filter(e => e.position === 'Нярав').map(e => ({
+                value: e.id, label: `${e.emp_code} — ${e.last_name} ${e.first_name}` }))} />
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   )
 }

@@ -1,35 +1,31 @@
 import React, { useEffect, useState, useCallback } from 'react'
 import {
-  CButton, CCard, CCardBody, CCardHeader, CBadge, CSpinner, CRow, CCol,
-  CFormInput, CFormLabel, CProgress,
-  CModal, CModalHeader, CModalTitle, CModalBody, CModalFooter,
-  CTable, CTableHead, CTableBody, CTableRow, CTableHeaderCell, CTableDataCell,
-} from '@coreui/react'
+  Row, Col, Card, Button, Tag, Table, Progress, Modal, Form, DatePicker,
+  InputNumber, Space, Spin, message,
+} from 'antd'
+import { SettingOutlined, ReloadOutlined } from '@ant-design/icons'
 import api from 'src/services/api'
+import dayjs from 'dayjs'
 
-const scoreColor = (s) => s == null ? 'secondary' : s >= 90 ? 'success' : s >= 70 ? 'info' : s >= 50 ? 'warning' : 'danger'
-const fmtVal = (v, unit) => v == null ? '—' : `${v}${unit || ''}`
+const scoreColor = (s) => s == null ? '#8c8c8c' : s >= 90 ? '#52c41a' : s >= 70 ? '#1890ff' : s >= 50 ? '#faad14' : '#cf1322'
+const fmt = (v, u) => v == null ? '—' : `${v}${u || ''}`
 
 export default function Kpi() {
-  const today = new Date().toISOString().slice(0, 10)
-  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10)
-
-  const [from, setFrom] = useState(monthStart)
-  const [to, setTo] = useState(today)
-  const [data, setData] = useState(null)
+  const [range, setRange] = useState([dayjs().startOf('month'), dayjs()])
+  const [data, setData]   = useState(null)
   const [loading, setLoading] = useState(false)
 
-  const [tModal, setTModal] = useState(false)
+  const [tModal,  setTModal]  = useState(false)
   const [targets, setTargets] = useState([])
   const [savingKey, setSavingKey] = useState(null)
 
   const load = useCallback(() => {
     setLoading(true)
-    api.getKpiOverview({ date_from: from, date_to: to })
-      .then(r => setData(r.data))
-      .finally(() => setLoading(false))
-  }, [from, to])
-
+    api.getKpiOverview({
+      date_from: range[0].format('YYYY-MM-DD'),
+      date_to:   range[1].format('YYYY-MM-DD'),
+    }).then(r => setData(r.data)).finally(() => setLoading(false))
+  }, [range])
   useEffect(() => { load() }, [load])
 
   const openTargets = async () => {
@@ -41,148 +37,115 @@ export default function Kpi() {
     setSavingKey(t.metric_key)
     try {
       await api.updateKpiTarget({ metric_key: t.metric_key, target_value: Number(t.target_value), weight: Number(t.weight) })
-      load()
+      load(); message.success('Хадгалагдлаа')
     } finally { setSavingKey(null) }
   }
 
+  const detailCols = [
+    { title: 'Үзүүлэлт', dataIndex: 'label' },
+    { title: 'Утга', dataIndex: 'value', width: 120, align: 'right',
+      render: (v, m) => <span style={{ fontWeight: 600 }}>{fmt(v, m.unit)}</span> },
+    { title: 'Зорилт', dataIndex: 'target', width: 120, align: 'right',
+      render: (v, m) => fmt(v, m.unit) },
+    { title: 'Чиглэл', dataIndex: 'direction', width: 130,
+      render: v => v === 'up' ? 'Их нь сайн' : 'Бага нь сайн' },
+    { title: 'Жин', dataIndex: 'weight', width: 80, align: 'right' },
+    { title: 'Оноо', dataIndex: 'score', width: 90, align: 'right',
+      render: v => v == null ? '—' : `${v}%` },
+    { title: 'Төлөв', dataIndex: 'met', width: 130,
+      render: v => v == null ? <Tag>Өгөгдөлгүй</Tag>
+        : <Tag color={v ? 'success' : 'error'}>{v ? 'Хүрсэн' : 'Хүрээгүй'}</Tag> },
+  ]
+
+  const targetCols = [
+    { title: 'Үзүүлэлт', dataIndex: 'label' },
+    { title: 'Зорилт', dataIndex: 'target_value', width: 140,
+      render: (v, r, i) => (
+        <InputNumber value={v} step={0.01} style={{ width: '100%' }}
+          onChange={(val) => setTargets(ts => ts.map((x, j) => j === i ? { ...x, target_value: val } : x))} />
+      ) },
+    { title: 'Жин', dataIndex: 'weight', width: 120,
+      render: (v, r, i) => (
+        <InputNumber value={v} step={0.1} style={{ width: '100%' }}
+          onChange={(val) => setTargets(ts => ts.map((x, j) => j === i ? { ...x, weight: val } : x))} />
+      ) },
+    { title: '', width: 110, render: (_, t) => (
+      <Button size="small" type="primary" loading={savingKey === t.metric_key}
+        onClick={() => saveTarget(t)}>Хадгалах</Button>
+    ) },
+  ]
+
   return (
-    <div className="p-3">
-      <div className="d-flex justify-content-between align-items-center mb-3">
-        <h4 className="fw-bold mb-0">KPI / Гүйцэтгэлийн үзүүлэлт</h4>
-        <CButton color="primary" variant="outline" onClick={openTargets}>Зорилт тохируулах</CButton>
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <h4 style={{ margin: 0, fontWeight: 700 }}>KPI / Гүйцэтгэлийн үзүүлэлт</h4>
+        <Button icon={<SettingOutlined />} onClick={openTargets}>Зорилт тохируулах</Button>
       </div>
 
-      <CCard className="mb-3">
-        <CCardBody>
-          <CRow className="g-3 align-items-end">
-            <CCol sm={3}><CFormLabel>Эхлэх огноо</CFormLabel>
-              <CFormInput type="date" value={from} onChange={e=>setFrom(e.target.value)} /></CCol>
-            <CCol sm={3}><CFormLabel>Дуусах огноо</CFormLabel>
-              <CFormInput type="date" value={to} onChange={e=>setTo(e.target.value)} /></CCol>
-            <CCol sm={2}><CButton color="primary" onClick={load} disabled={loading}>
-              {loading ? <CSpinner size="sm" /> : 'Шинэчлэх'}</CButton></CCol>
-          </CRow>
-        </CCardBody>
-      </CCard>
+      <Card style={{ marginBottom: 16 }}>
+        <Space wrap>
+          <DatePicker.RangePicker value={range} onChange={(v) => v && setRange(v)}
+            format="YYYY-MM-DD" allowClear={false} />
+          <Button type="primary" icon={<ReloadOutlined />} onClick={load} loading={loading}>Шинэчлэх</Button>
+        </Space>
+      </Card>
 
-      {loading && !data ? <div className="text-center py-5"><CSpinner /></div> : data && (
+      {loading && !data ? <div style={{ textAlign: 'center', padding: 60 }}><Spin size="large" /></div> : data && (
         <>
-          <CRow className="g-3 mb-3">
-            <CCol md={4}>
-              <CCard className="h-100">
-                <CCardBody className="text-center">
-                  <div className="text-medium-emphasis small">Нэгдсэн аюулгүйн оноо</div>
-                  <div className={`fw-bold text-${scoreColor(data.safety_score)}`} style={{ fontSize: '3rem', lineHeight: 1.1 }}>
-                    {data.safety_score ?? '—'}
-                  </div>
-                  <CProgress className="mt-2" value={data.safety_score || 0} color={scoreColor(data.safety_score)} />
-                  <div className="small text-medium-emphasis mt-2">
-                    {data.active_employees} идэвхтэй ажилтан · {data.period.from} → {data.period.to}
-                  </div>
-                </CCardBody>
-              </CCard>
-            </CCol>
-            <CCol md={8}>
-              <CRow className="g-3">
+          <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+            <Col md={8}>
+              <Card style={{ textAlign: 'center', height: '100%' }}>
+                <div style={{ color: '#8c8c8c', fontSize: 13 }}>Нэгдсэн аюулгүйн оноо</div>
+                <div style={{ fontWeight: 700, color: scoreColor(data.safety_score), fontSize: 48, lineHeight: 1.1 }}>
+                  {data.safety_score ?? '—'}
+                </div>
+                <Progress percent={data.safety_score || 0} strokeColor={scoreColor(data.safety_score)}
+                  showInfo={false} style={{ marginTop: 8 }} />
+                <div style={{ color: '#8c8c8c', fontSize: 12, marginTop: 8 }}>
+                  {data.active_employees} идэвхтэй ажилтан · {data.period.from} → {data.period.to}
+                </div>
+              </Card>
+            </Col>
+            <Col md={16}>
+              <Row gutter={[12, 12]}>
                 {data.metrics.map(m => (
-                  <CCol sm={6} key={m.key}>
-                    <CCard className="h-100">
-                      <CCardBody className="py-2">
-                        <div className="d-flex justify-content-between align-items-center">
-                          <span className="small text-medium-emphasis">{m.label}</span>
-                          {m.met != null && (
-                            <CBadge color={m.met ? 'success' : 'danger'}>{m.met ? 'Хүрсэн' : 'Хүрээгүй'}</CBadge>
-                          )}
-                        </div>
-                        <div className="d-flex align-items-baseline gap-2">
-                          <span className={`fw-bold fs-4 text-${scoreColor(m.score)}`}>{fmtVal(m.value, m.unit)}</span>
-                          <span className="small text-medium-emphasis">/ зорилт {fmtVal(m.target, m.unit)}</span>
-                        </div>
-                        <CProgress thin value={m.score || 0} color={scoreColor(m.score)} />
-                      </CCardBody>
-                    </CCard>
-                  </CCol>
+                  <Col sm={12} key={m.key}>
+                    <Card size="small">
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ color: '#8c8c8c', fontSize: 12 }}>{m.label}</span>
+                        {m.met != null && (
+                          <Tag color={m.met ? 'success' : 'error'}>{m.met ? 'Хүрсэн' : 'Хүрээгүй'}</Tag>
+                        )}
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 4 }}>
+                        <span style={{ fontWeight: 700, fontSize: 20, color: scoreColor(m.score) }}>
+                          {fmt(m.value, m.unit)}
+                        </span>
+                        <span style={{ color: '#8c8c8c', fontSize: 12 }}>/ зорилт {fmt(m.target, m.unit)}</span>
+                      </div>
+                      <Progress size="small" percent={m.score || 0}
+                        strokeColor={scoreColor(m.score)} showInfo={false} />
+                    </Card>
+                  </Col>
                 ))}
-              </CRow>
-            </CCol>
-          </CRow>
+              </Row>
+            </Col>
+          </Row>
 
-          <CCard>
-            <CCardHeader className="fw-semibold">Дэлгэрэнгүй</CCardHeader>
-            <CCardBody>
-              <CTable hover responsive>
-                <CTableHead>
-                  <CTableRow>
-                    <CTableHeaderCell>Үзүүлэлт</CTableHeaderCell>
-                    <CTableHeaderCell className="text-end">Утга</CTableHeaderCell>
-                    <CTableHeaderCell className="text-end">Зорилт</CTableHeaderCell>
-                    <CTableHeaderCell>Чиглэл</CTableHeaderCell>
-                    <CTableHeaderCell className="text-end">Жин</CTableHeaderCell>
-                    <CTableHeaderCell className="text-end">Оноо</CTableHeaderCell>
-                    <CTableHeaderCell>Төлөв</CTableHeaderCell>
-                  </CTableRow>
-                </CTableHead>
-                <CTableBody>
-                  {data.metrics.map(m => (
-                    <CTableRow key={m.key}>
-                      <CTableDataCell>{m.label}</CTableDataCell>
-                      <CTableDataCell className="text-end fw-semibold">{fmtVal(m.value, m.unit)}</CTableDataCell>
-                      <CTableDataCell className="text-end">{fmtVal(m.target, m.unit)}</CTableDataCell>
-                      <CTableDataCell>{m.direction === 'up' ? 'Их нь сайн' : 'Бага нь сайн'}</CTableDataCell>
-                      <CTableDataCell className="text-end">{m.weight}</CTableDataCell>
-                      <CTableDataCell className="text-end">{m.score == null ? '—' : `${m.score}%`}</CTableDataCell>
-                      <CTableDataCell>
-                        {m.met == null ? <CBadge color="secondary">Өгөгдөлгүй</CBadge>
-                          : <CBadge color={m.met ? 'success' : 'danger'}>{m.met ? 'Хүрсэн' : 'Хүрээгүй'}</CBadge>}
-                      </CTableDataCell>
-                    </CTableRow>
-                  ))}
-                </CTableBody>
-              </CTable>
-            </CCardBody>
-          </CCard>
+          <Card title="Дэлгэрэнгүй">
+            <Table rowKey="key" size="middle" columns={detailCols}
+              dataSource={data.metrics} pagination={false} />
+          </Card>
         </>
       )}
 
-      {/* Targets modal */}
-      <CModal visible={tModal} onClose={()=>setTModal(false)} size="lg">
-        <CModalHeader><CModalTitle>KPI зорилт тохируулах</CModalTitle></CModalHeader>
-        <CModalBody>
-          <CTable responsive>
-            <CTableHead>
-              <CTableRow>
-                <CTableHeaderCell>Үзүүлэлт</CTableHeaderCell>
-                <CTableHeaderCell>Зорилт</CTableHeaderCell>
-                <CTableHeaderCell>Жин</CTableHeaderCell>
-                <CTableHeaderCell></CTableHeaderCell>
-              </CTableRow>
-            </CTableHead>
-            <CTableBody>
-              {targets.map((t, i) => (
-                <CTableRow key={t.metric_key}>
-                  <CTableDataCell>{t.label}</CTableDataCell>
-                  <CTableDataCell style={{ width: 130 }}>
-                    <CFormInput type="number" step="0.01" value={t.target_value}
-                      onChange={e=>setTargets(ts=>ts.map((x,j)=>j===i?{...x,target_value:e.target.value}:x))} />
-                  </CTableDataCell>
-                  <CTableDataCell style={{ width: 110 }}>
-                    <CFormInput type="number" step="0.1" value={t.weight}
-                      onChange={e=>setTargets(ts=>ts.map((x,j)=>j===i?{...x,weight:e.target.value}:x))} />
-                  </CTableDataCell>
-                  <CTableDataCell style={{ width: 100 }}>
-                    <CButton size="sm" color="primary" onClick={()=>saveTarget(t)} disabled={savingKey===t.metric_key}>
-                      {savingKey===t.metric_key ? <CSpinner size="sm" /> : 'Хадгалах'}
-                    </CButton>
-                  </CTableDataCell>
-                </CTableRow>
-              ))}
-            </CTableBody>
-          </CTable>
-        </CModalBody>
-        <CModalFooter>
-          <CButton color="secondary" onClick={()=>setTModal(false)}>Хаах</CButton>
-        </CModalFooter>
-      </CModal>
+      <Modal
+        title="KPI зорилт тохируулах"
+        open={tModal} onCancel={() => setTModal(false)} footer={null} width={720}
+      >
+        <Table rowKey="metric_key" size="middle" columns={targetCols}
+          dataSource={targets} pagination={false} />
+      </Modal>
     </div>
   )
 }

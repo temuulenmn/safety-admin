@@ -1,15 +1,17 @@
 {
-  "short_name": "CoreUI-React",
-  "name": "CoreUI-React sample",
-  "icons": [
-    {
-      "src": "./assets/img/favicon.png",
-      "sizes": "100x100",
-      "type": "image/png"
-    }
-  ],
-  "start_url": ".",
+  "name": "Аюулгүй ажиллагаа — Админ",
+  "short_name": "Safety Admin",
+  "description": "Барилгын аюулгүй ажиллагааны удирдлагын систем — менежер, захирал",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
-  "theme_color": "#000000",
-  "background_color": "#ffffff"
+  "orientation": "portrait",
+  "background_color": "#0b0e14",
+  "theme_color": "#5856d6",
+  "lang": "mn",
+  "icons": [
+    { "src": "./icon.jpg", "sizes": "512x512", "type": "image/jpeg", "purpose": "any" },
+    { "src": "./icon.jpg", "sizes": "192x192", "type": "image/jpeg", "purpose": "any" },
+    { "src": "./icon.jpg", "sizes": "180x180", "type": "image/jpeg", "purpose": "any" }
+  ]
 }

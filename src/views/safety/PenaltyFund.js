@@ -1,21 +1,20 @@
 import React, { useEffect, useState } from 'react'
 import {
-  CButton, CCard, CCardBody, CCardHeader, CSpinner, CRow, CCol,
-  CFormInput, CFormLabel, CFormTextarea,
-  CModal, CModalHeader, CModalTitle, CModalBody, CModalFooter, CForm,
-  CTable, CTableHead, CTableRow, CTableHeaderCell, CTableBody, CTableDataCell,
-} from '@coreui/react'
+  Row, Col, Card, Statistic, Table, Button, Modal, Form, Input, DatePicker,
+  Alert, Space, Popconfirm, InputNumber, Spin, message,
+} from 'antd'
+import { PlusOutlined, DeleteOutlined } from '@ant-design/icons'
 import api from 'src/services/api'
 import dayjs from 'dayjs'
 
-const fmtMNT = n => Number(n||0).toLocaleString('mn-MN') + '₮'
+const money = (n) => Number(n || 0).toLocaleString('mn-MN') + '₮'
 
 export default function PenaltyFund() {
   const [balance, setBalance] = useState(null)
   const [expenses,setExpenses]= useState([])
   const [loading, setLoading] = useState(true)
   const [modal,   setModal]   = useState(false)
-  const [form,    setForm]    = useState({ amount: '', purpose: '', spent_at: dayjs().format('YYYY-MM-DD'), notes: '' })
+  const [form]    = Form.useForm()
   const [saving,  setSaving]  = useState(false)
 
   const load = () => {
@@ -27,128 +26,105 @@ export default function PenaltyFund() {
   useEffect(load, [])
 
   const openCreate = () => {
-    setForm({ amount: '', purpose: '', spent_at: dayjs().format('YYYY-MM-DD'), notes: '' })
+    form.resetFields()
+    form.setFieldsValue({ spent_at: dayjs() })
     setModal(true)
   }
   const save = async () => {
-    setSaving(true)
     try {
-      await api.createFundExpense({ ...form, amount: Number(form.amount) })
-      setModal(false); load()
-    } finally { setSaving(false) }
+      const v = await form.validateFields()
+      setSaving(true)
+      await api.createFundExpense({
+        ...v,
+        amount: Number(v.amount),
+        spent_at: v.spent_at.format('YYYY-MM-DD'),
+      })
+      setModal(false); load(); message.success('Хадгалагдлаа')
+    } catch (e) { if (e?.errorFields) return }
+    finally { setSaving(false) }
   }
-  const remove = async (id) => {
-    if (!window.confirm('Устгах уу?')) return
-    await api.deleteFundExpense(id); load()
-  }
+  const remove = async (id) => { await api.deleteFundExpense(id); load(); message.success('Устгагдлаа') }
 
-  if (loading) return <div className="p-3 text-center"><CSpinner /></div>
+  if (loading) return <div style={{ textAlign: 'center', padding: 60 }}><Spin size="large" /></div>
+
+  const bal = Number(balance?.balance || 0)
+
+  const cols = [
+    { title: 'Огноо', dataIndex: 'spent_at', width: 120, render: v => dayjs(v).format('YYYY-MM-DD') },
+    { title: 'Зориулалт', dataIndex: 'purpose', render: v => <span style={{ fontWeight: 600 }}>{v}</span> },
+    { title: 'Тэмдэглэл', dataIndex: 'notes', render: v => <span style={{ color: '#8c8c8c' }}>{v || '—'}</span> },
+    { title: 'Шийдсэн', dataIndex: 'decided_by_name', width: 130, render: v => v || '—' },
+    { title: 'Дүн', dataIndex: 'amount', width: 130, align: 'right',
+      render: v => <span style={{ fontWeight: 700 }}>{money(v)}</span> },
+    { title: '', width: 60, render: (_, e) => (
+      <Popconfirm title="Устгах уу?" onConfirm={() => remove(e.id)} okText="Тийм" cancelText="Үгүй">
+        <Button size="small" icon={<DeleteOutlined />} danger />
+      </Popconfirm>
+    ) },
+  ]
 
   return (
-    <div className="p-3">
-      <div className="d-flex justify-content-between align-items-center mb-3">
-        <h4 className="fw-bold mb-0">Торгуулийн сан</h4>
-        <CButton color="primary" onClick={openCreate} disabled={Number(balance?.balance||0) <= 0}>
-          + Зарцуулалт нэмэх
-        </CButton>
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <h4 style={{ margin: 0, fontWeight: 700 }}>Торгуулийн сан</h4>
+        <Button type="primary" icon={<PlusOutlined />} onClick={openCreate} disabled={bal <= 0}>
+          Зарцуулалт нэмэх
+        </Button>
       </div>
 
-      <div className="alert alert-info py-2 small mb-3">
-        ⓘ Цуглуулсан торгуулийн мөнгийг ажилчдад нээлттэй харуулна. Ажилчдын саналаар уг сангаас зарцуулна.
-      </div>
+      <Alert type="info" style={{ marginBottom: 16 }} showIcon
+        message="Цуглуулсан торгуулийн мөнгийг ажилчдад нээлттэй харуулна. Ажилчдын саналаар уг сангаас зарцуулна." />
 
-      <CRow className="g-3 mb-4">
-        <CCol sm={4}>
-          <CCard>
-            <CCardBody className="text-center">
-              <div className="text-medium-emphasis small">Нийт цуглуулсан</div>
-              <div className="fw-bold fs-2 text-success">{fmtMNT(balance?.collected)}</div>
-            </CCardBody>
-          </CCard>
-        </CCol>
-        <CCol sm={4}>
-          <CCard>
-            <CCardBody className="text-center">
-              <div className="text-medium-emphasis small">Зарцуулсан</div>
-              <div className="fw-bold fs-2 text-warning">{fmtMNT(balance?.spent)}</div>
-            </CCardBody>
-          </CCard>
-        </CCol>
-        <CCol sm={4}>
-          <CCard>
-            <CCardBody className="text-center">
-              <div className="text-medium-emphasis small">Үлдэгдэл</div>
-              <div className="fw-bold fs-2 text-primary">{fmtMNT(balance?.balance)}</div>
-            </CCardBody>
-          </CCard>
-        </CCol>
-      </CRow>
+      <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+        <Col xs={24} sm={8}>
+          <Card><Statistic title="Нийт цуглуулсан" value={money(balance?.collected)}
+            valueStyle={{ color: '#52c41a', fontWeight: 700 }} /></Card>
+        </Col>
+        <Col xs={24} sm={8}>
+          <Card><Statistic title="Зарцуулсан" value={money(balance?.spent)}
+            valueStyle={{ color: '#faad14', fontWeight: 700 }} /></Card>
+        </Col>
+        <Col xs={24} sm={8}>
+          <Card><Statistic title="Үлдэгдэл" value={money(balance?.balance)}
+            valueStyle={{ color: '#5856d6', fontWeight: 700 }} /></Card>
+        </Col>
+      </Row>
 
-      <CCard>
-        <CCardHeader className="fw-semibold">Зарцуулалтын түүх</CCardHeader>
-        <CCardBody className="p-0">
-          <CTable hover responsive className="mb-0">
-            <CTableHead>
-              <CTableRow>
-                <CTableHeaderCell>Огноо</CTableHeaderCell>
-                <CTableHeaderCell>Зориулалт</CTableHeaderCell>
-                <CTableHeaderCell>Тэмдэглэл</CTableHeaderCell>
-                <CTableHeaderCell>Шийдсэн</CTableHeaderCell>
-                <CTableHeaderCell className="text-end">Дүн</CTableHeaderCell>
-                <CTableHeaderCell></CTableHeaderCell>
-              </CTableRow>
-            </CTableHead>
-            <CTableBody>
-              {expenses.map(e => (
-                <CTableRow key={e.id}>
-                  <CTableDataCell>{dayjs(e.spent_at).format('YYYY-MM-DD')}</CTableDataCell>
-                  <CTableDataCell className="fw-semibold">{e.purpose}</CTableDataCell>
-                  <CTableDataCell className="text-medium-emphasis small">{e.notes || '—'}</CTableDataCell>
-                  <CTableDataCell>{e.decided_by_name || '—'}</CTableDataCell>
-                  <CTableDataCell className="text-end fw-bold">{fmtMNT(e.amount)}</CTableDataCell>
-                  <CTableDataCell>
-                    <CButton size="sm" color="danger" variant="outline" onClick={()=>remove(e.id)}>X</CButton>
-                  </CTableDataCell>
-                </CTableRow>
-              ))}
-              {expenses.length === 0 && (
-                <CTableRow>
-                  <CTableDataCell colSpan={6} className="text-center text-medium-emphasis py-4">
-                    Зарцуулалт алга
-                  </CTableDataCell>
-                </CTableRow>
-              )}
-            </CTableBody>
-          </CTable>
-        </CCardBody>
-      </CCard>
+      <Card title="Зарцуулалтын түүх">
+        <Table rowKey="id" size="middle" columns={cols} dataSource={expenses}
+          pagination={{ pageSize: 20, showSizeChanger: true }}
+          locale={{ emptyText: 'Зарцуулалт алга' }} />
+      </Card>
 
-      <CModal visible={modal} onClose={()=>setModal(false)}>
-        <CModalHeader><CModalTitle>Сангийн зарцуулалт</CModalTitle></CModalHeader>
-        <CModalBody>
-          <CForm><CRow className="g-3">
-            <CCol sm={12}><CFormLabel>Зориулалт *</CFormLabel>
-              <CFormInput value={form.purpose} onChange={e=>setForm(f=>({...f,purpose:e.target.value}))}
-                placeholder="Ажилчдын аялал, цайны өрөөний хэрэгсэл..." /></CCol>
-            <CCol sm={6}><CFormLabel>Дүн (₮) *</CFormLabel>
-              <CFormInput type="number" value={form.amount} onChange={e=>setForm(f=>({...f,amount:e.target.value}))} /></CCol>
-            <CCol sm={6}><CFormLabel>Огноо</CFormLabel>
-              <CFormInput type="date" value={form.spent_at} onChange={e=>setForm(f=>({...f,spent_at:e.target.value}))} /></CCol>
-            <CCol sm={12}><CFormLabel>Тэмдэглэл</CFormLabel>
-              <CFormTextarea rows={2} value={form.notes} onChange={e=>setForm(f=>({...f,notes:e.target.value}))} /></CCol>
-            <CCol sm={12} className="small text-medium-emphasis">
-              Үлдэгдэл: <strong>{fmtMNT(balance?.balance)}</strong>
-            </CCol>
-          </CRow></CForm>
-        </CModalBody>
-        <CModalFooter>
-          <CButton color="secondary" onClick={()=>setModal(false)}>Болих</CButton>
-          <CButton color="primary" onClick={save}
-            disabled={saving || !form.purpose || !Number(form.amount) || Number(form.amount) > Number(balance?.balance||0)}>
-            {saving ? <CSpinner size="sm" /> : 'Хадгалах'}
-          </CButton>
-        </CModalFooter>
-      </CModal>
+      <Modal
+        title="Сангийн зарцуулалт"
+        open={modal} onOk={save} onCancel={() => setModal(false)}
+        okText="Хадгалах" cancelText="Болих" confirmLoading={saving} destroyOnClose
+      >
+        <Form form={form} layout="vertical" requiredMark={false}>
+          <Form.Item name="purpose" label="Зориулалт" rules={[{ required: true }]}>
+            <Input placeholder="Ажилчдын аялал, цайны өрөөний хэрэгсэл..." />
+          </Form.Item>
+          <Row gutter={12}>
+            <Col span={12}>
+              <Form.Item name="amount" label="Дүн (₮)"
+                rules={[{ required: true }, { validator: (_, v) =>
+                  Number(v) > bal ? Promise.reject('Үлдэгдлээс их байна') : Promise.resolve() }]}>
+                <InputNumber style={{ width: '100%' }} min={1} max={bal} />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="spent_at" label="Огноо">
+                <DatePicker style={{ width: '100%' }} format="YYYY-MM-DD" />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Form.Item name="notes" label="Тэмдэглэл"><Input.TextArea rows={2} /></Form.Item>
+          <div style={{ color: '#8c8c8c', fontSize: 12 }}>
+            Үлдэгдэл: <strong>{money(bal)}</strong>
+          </div>
+        </Form>
+      </Modal>
     </div>
   )
 }

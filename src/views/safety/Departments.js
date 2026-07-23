@@ -1,22 +1,16 @@
 import React, { useEffect, useState } from 'react'
-import {
-  CButton, CCard, CCardBody, CCardHeader, CTable, CTableHead, CTableRow,
-  CTableHeaderCell, CTableBody, CTableDataCell, CSpinner, CModal, CModalHeader,
-  CModalTitle, CModalBody, CModalFooter, CForm, CFormInput, CFormLabel, CFormSelect, CRow, CCol,
-} from '@coreui/react'
+import { Card, Table, Button, Modal, Form, Input, Select, Space, Popconfirm, message } from 'antd'
+import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons'
 import api from 'src/services/api'
-
-const EMPTY = { name: '', location: '', manager_id: '' }
 
 export default function Departments() {
   const [rows,      setRows]      = useState([])
   const [employees, setEmployees] = useState([])
   const [loading,   setLoading]   = useState(true)
   const [modal,     setModal]     = useState(false)
-  const [form,      setForm]      = useState(EMPTY)
+  const [form]      = Form.useForm()
   const [editing,   setEditing]   = useState(null)
   const [saving,    setSaving]    = useState(false)
-  const [deleting,  setDeleting]  = useState(null)
 
   const load = () => {
     setLoading(true)
@@ -26,98 +20,65 @@ export default function Departments() {
   }
   useEffect(load, [])
 
-  const openCreate = () => { setEditing(null); setForm(EMPTY); setModal(true) }
-  const openEdit   = (r) => {
+  const openCreate = () => { setEditing(null); form.resetFields(); setModal(true) }
+  const openEdit = (r) => {
     setEditing(r.id)
-    setForm({ name: r.name, location: r.location || '', manager_id: r.manager_id || '' })
+    form.setFieldsValue({ name: r.name, location: r.location || '', manager_id: r.manager_id || undefined })
     setModal(true)
   }
   const save = async () => {
-    setSaving(true)
     try {
-      editing ? await api.updateDepartment(editing, form) : await api.createDepartment(form)
-      setModal(false); load()
-    } finally { setSaving(false) }
+      const v = await form.validateFields()
+      setSaving(true)
+      editing ? await api.updateDepartment(editing, v) : await api.createDepartment(v)
+      setModal(false); load(); message.success('Хадгалагдлаа')
+    } catch (e) { if (e?.errorFields) return }
+    finally { setSaving(false) }
   }
-  const remove = async (id) => {
-    if (!window.confirm('Хэлтсийг устгах уу?')) return
-    setDeleting(id)
-    try { await api.deleteDepartment(id); load() } finally { setDeleting(null) }
-  }
+  const remove = async (id) => { await api.deleteDepartment(id); load(); message.success('Устгагдлаа') }
+
+  const cols = [
+    { title: '#', width: 60, render: (_, __, i) => i + 1 },
+    { title: 'Нэр', dataIndex: 'name', render: v => <span style={{ fontWeight: 600 }}>{v}</span> },
+    { title: 'Байрлал', dataIndex: 'location', render: v => v || '—' },
+    { title: 'Менежер', dataIndex: 'manager_name', render: v => v || '—' },
+    { title: 'Үйлдэл', width: 120, render: (_, r) => (
+      <Space size="small">
+        <Button size="small" icon={<EditOutlined />} onClick={() => openEdit(r)} />
+        <Popconfirm title="Хэлтсийг устгах уу?" onConfirm={() => remove(r.id)} okText="Тийм" cancelText="Үгүй">
+          <Button size="small" icon={<DeleteOutlined />} danger />
+        </Popconfirm>
+      </Space>
+    ) },
+  ]
 
   return (
-    <div className="p-3">
-      <div className="d-flex justify-content-between align-items-center mb-3">
-        <h4 className="fw-bold mb-0">Хэлтсүүд</h4>
-        <CButton color="primary" onClick={openCreate}>+ Нэмэх</CButton>
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <h4 style={{ margin: 0, fontWeight: 700 }}>Хэлтсүүд</h4>
+        <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>Нэмэх</Button>
       </div>
+      <Card>
+        <Table rowKey="id" size="middle" loading={loading}
+          columns={cols} dataSource={rows}
+          pagination={{ pageSize: 20, hideOnSinglePage: true }}
+          locale={{ emptyText: 'Хэлтэс алга' }} />
+      </Card>
 
-      <CCard>
-        <CCardBody className="p-0">
-          {loading ? <div className="text-center py-4"><CSpinner /></div> : (
-            <CTable hover responsive>
-              <CTableHead>
-                <CTableRow>
-                  <CTableHeaderCell>#</CTableHeaderCell>
-                  <CTableHeaderCell>Нэр</CTableHeaderCell>
-                  <CTableHeaderCell>Байрлал</CTableHeaderCell>
-                  <CTableHeaderCell>Менежер</CTableHeaderCell>
-                  <CTableHeaderCell>Үйлдэл</CTableHeaderCell>
-                </CTableRow>
-              </CTableHead>
-              <CTableBody>
-                {rows.map((r, i) => (
-                  <CTableRow key={r.id}>
-                    <CTableDataCell>{i + 1}</CTableDataCell>
-                    <CTableDataCell className="fw-semibold">{r.name}</CTableDataCell>
-                    <CTableDataCell>{r.location || '—'}</CTableDataCell>
-                    <CTableDataCell>{r.manager_name || '—'}</CTableDataCell>
-                    <CTableDataCell>
-                      <CButton size="sm" color="primary" variant="outline" className="me-1" onClick={() => openEdit(r)}>Засах</CButton>
-                      <CButton size="sm" color="danger"  variant="outline" onClick={() => remove(r.id)} disabled={deleting === r.id}>
-                        {deleting === r.id ? <CSpinner size="sm" /> : 'Устгах'}
-                      </CButton>
-                    </CTableDataCell>
-                  </CTableRow>
-                ))}
-              </CTableBody>
-            </CTable>
-          )}
-        </CCardBody>
-      </CCard>
-
-      <CModal visible={modal} onClose={() => setModal(false)}>
-        <CModalHeader><CModalTitle>{editing ? 'Хэлтэс засах' : 'Хэлтэс нэмэх'}</CModalTitle></CModalHeader>
-        <CModalBody>
-          <CForm>
-            <CRow className="g-3">
-              <CCol sm={12}>
-                <CFormLabel>Нэр <span className="text-danger">*</span></CFormLabel>
-                <CFormInput value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
-              </CCol>
-              <CCol sm={12}>
-                <CFormLabel>Байрлал</CFormLabel>
-                <CFormInput value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))} />
-              </CCol>
-              <CCol sm={12}>
-                <CFormLabel>Менежер</CFormLabel>
-                <CFormSelect value={form.manager_id} onChange={e => setForm(f => ({ ...f, manager_id: e.target.value }))}>
-                  <option value="">-- Сонгох --</option>
-                  {employees.map(e => (
-                    <option key={e.id} value={e.id}>{e.last_name} {e.first_name}</option>
-                  ))}
-                </CFormSelect>
-              </CCol>
-            </CRow>
-          </CForm>
-        </CModalBody>
-        <CModalFooter>
-          <CButton color="secondary" onClick={() => setModal(false)}>Болих</CButton>
-          <CButton color="primary" onClick={save} disabled={saving}>
-            {saving ? <CSpinner size="sm" /> : 'Хадгалах'}
-          </CButton>
-        </CModalFooter>
-      </CModal>
+      <Modal
+        title={editing ? 'Хэлтэс засах' : 'Хэлтэс нэмэх'}
+        open={modal} onOk={save} onCancel={() => setModal(false)}
+        okText="Хадгалах" cancelText="Болих" confirmLoading={saving} destroyOnClose
+      >
+        <Form form={form} layout="vertical" requiredMark={false}>
+          <Form.Item name="name" label="Нэр" rules={[{ required: true }]}><Input /></Form.Item>
+          <Form.Item name="location" label="Байрлал"><Input /></Form.Item>
+          <Form.Item name="manager_id" label="Менежер">
+            <Select allowClear placeholder="-- Сонгох --"
+              options={employees.map(e => ({ value: e.id, label: `${e.last_name} ${e.first_name}` }))} />
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   )
 }

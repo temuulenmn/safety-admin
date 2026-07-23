@@ -1,14 +1,10 @@
 import React, { useEffect, useState } from 'react'
 import {
-  CButton, CCard, CCardBody, CCardHeader, CBadge, CSpinner, CRow, CCol,
-  CFormInput, CFormSelect, CFormLabel, CFormCheck,
-  CTable, CTableHead, CTableRow, CTableHeaderCell, CTableBody, CTableDataCell,
-  CModal, CModalHeader, CModalTitle, CModalBody, CModalFooter, CForm,
-  CAlert,
-} from '@coreui/react'
+  Row, Col, Card, Table, Tag, Button, Modal, Form, Input, Select, Checkbox,
+  Space, Popconfirm, Alert, message,
+} from 'antd'
+import { PlusOutlined, EditOutlined, DeleteOutlined, SafetyOutlined } from '@ant-design/icons'
 import api from 'src/services/api'
-
-const EMPTY = { zone_name: '', description: '', requires_rfid: true, required_training_ids: [] }
 
 export default function SiteAccess() {
   const [rules,     setRules]    = useState([])
@@ -16,68 +12,51 @@ export default function SiteAccess() {
   const [emps,      setEmps]     = useState([])
   const [loading,   setLoading]  = useState(true)
   const [modal,     setModal]    = useState(false)
-  const [form,      setForm]     = useState(EMPTY)
+  const [form]      = Form.useForm()
   const [editing,   setEditing]  = useState(null)
   const [saving,    setSaving]   = useState(false)
-  const [deleting,  setDeleting] = useState(null)
-  // Check access
-  const [checkEmp,  setCheckEmp] = useState('')
-  const [checkZone, setCheckZone]= useState('')
+
+  const [checkEmp,  setCheckEmp] = useState()
+  const [checkZone, setCheckZone]= useState()
   const [checkResult, setCheckResult] = useState(null)
   const [checking,  setChecking] = useState(false)
 
   useEffect(() => {
     setLoading(true)
     Promise.all([
-      api.getSiteAccess(),
-      api.getTrainings(),
+      api.getSiteAccess(), api.getTrainings(),
       api.getEmployees({ status: 'active', limit: 500 }),
     ]).then(([r, t, e]) => {
-      setRules(r.data || [])
-      setTrainings(t.data || [])
-      setEmps(e.data || [])
+      setRules(r.data || []); setTrainings(t.data || []); setEmps(e.data || [])
     }).finally(() => setLoading(false))
   }, [])
 
-  const load = () => {
-    api.getSiteAccess().then(r => setRules(r.data || []))
-  }
+  const load = () => api.getSiteAccess().then(r => setRules(r.data || []))
 
   const openCreate = () => {
-    setEditing(null)
-    setForm(EMPTY)
+    setEditing(null); form.resetFields()
+    form.setFieldsValue({ requires_rfid: true, required_training_ids: [] })
     setModal(true)
   }
   const openEdit = (r) => {
     setEditing(r.id)
-    setForm({
-      zone_name: r.zone_name,
-      description: r.description || '',
+    form.setFieldsValue({
+      zone_name: r.zone_name, description: r.description || '',
       requires_rfid: r.requires_rfid,
       required_training_ids: r.required_training_ids || [],
     })
     setModal(true)
   }
-  const toggleTraining = (id) => {
-    setForm(f => ({
-      ...f,
-      required_training_ids: f.required_training_ids.includes(id)
-        ? f.required_training_ids.filter(x => x !== id)
-        : [...f.required_training_ids, id],
-    }))
-  }
   const save = async () => {
-    setSaving(true)
     try {
-      editing ? await api.updateSiteAccess(editing, form) : await api.createSiteAccess(form)
-      setModal(false); load()
-    } finally { setSaving(false) }
+      const v = await form.validateFields()
+      setSaving(true)
+      editing ? await api.updateSiteAccess(editing, v) : await api.createSiteAccess(v)
+      setModal(false); load(); message.success('Хадгалагдлаа')
+    } catch (e) { if (e?.errorFields) return }
+    finally { setSaving(false) }
   }
-  const remove = async (id) => {
-    if (!window.confirm('Дүрэм устгах уу?')) return
-    setDeleting(id)
-    try { await api.deleteSiteAccess(id); load() } finally { setDeleting(null) }
-  }
+  const remove = async (id) => { await api.deleteSiteAccess(id); load(); message.success('Устгагдлаа') }
 
   const checkAccess = async () => {
     if (!checkEmp || !checkZone) return
@@ -92,156 +71,108 @@ export default function SiteAccess() {
 
   const zoneOptions = [...new Set(rules.map(r => r.zone_name))]
 
+  const cols = [
+    { title: 'Бүсийн нэр', dataIndex: 'zone_name',
+      render: v => <span style={{ fontWeight: 600 }}>{v}</span> },
+    { title: 'RFID', dataIndex: 'requires_rfid', width: 130,
+      render: v => <Tag color={v ? 'red' : 'default'}>{v ? 'Шаардлагатай' : 'Шаардлагагүй'}</Tag> },
+    { title: 'Шаардлагатай сургалт', dataIndex: 'required_trainings',
+      render: (v) => (v || []).length
+        ? v.map(t => <Tag key={t.id} color="blue">{t.name}</Tag>)
+        : <span style={{ color: '#8c8c8c' }}>—</span> },
+    { title: 'Тайлбар', dataIndex: 'description', render: v => v || '—' },
+    { title: '', width: 120, render: (_, r) => (
+      <Space size="small">
+        <Button size="small" icon={<EditOutlined />} onClick={() => openEdit(r)} />
+        <Popconfirm title="Дүрэм устгах уу?" onConfirm={() => remove(r.id)} okText="Тийм" cancelText="Үгүй">
+          <Button size="small" icon={<DeleteOutlined />} danger />
+        </Popconfirm>
+      </Space>
+    ) },
+  ]
+
   return (
-    <div className="p-3">
-      <h4 className="fw-bold mb-3">Талбайн нэвтрэх дүрэм</h4>
-
-      <CRow className="g-3">
-        {/* Rules list */}
-        <CCol lg={8}>
-          <CCard>
-            <CCardHeader className="d-flex justify-content-between align-items-center">
-              <span className="fw-semibold">Бүсийн дүрмүүд</span>
-              <CButton size="sm" color="primary" onClick={openCreate}>+ Дүрэм нэмэх</CButton>
-            </CCardHeader>
-            <CCardBody className="p-0">
-              {loading ? <div className="py-4 text-center"><CSpinner /></div> : (
-                <CTable hover responsive>
-                  <CTableHead>
-                    <CTableRow>
-                      <CTableHeaderCell>Бүсийн нэр</CTableHeaderCell>
-                      <CTableHeaderCell>RFID шаардлага</CTableHeaderCell>
-                      <CTableHeaderCell>Шаардлагатай сургалтууд</CTableHeaderCell>
-                      <CTableHeaderCell>Тайлбар</CTableHeaderCell>
-                      <CTableHeaderCell></CTableHeaderCell>
-                    </CTableRow>
-                  </CTableHead>
-                  <CTableBody>
-                    {rules.map(r => (
-                      <CTableRow key={r.id}>
-                        <CTableDataCell className="fw-semibold">{r.zone_name}</CTableDataCell>
-                        <CTableDataCell>
-                          <CBadge color={r.requires_rfid ? 'danger' : 'secondary'}>
-                            {r.requires_rfid ? 'Шаардлагатай' : 'Шаардлагагүй'}
-                          </CBadge>
-                        </CTableDataCell>
-                        <CTableDataCell>
-                          {r.required_trainings?.length > 0
-                            ? r.required_trainings.map(t => (
-                                <CBadge key={t.id} color="info" className="me-1">{t.name}</CBadge>
-                              ))
-                            : <span className="text-medium-emphasis">—</span>
-                          }
-                        </CTableDataCell>
-                        <CTableDataCell>{r.description || '—'}</CTableDataCell>
-                        <CTableDataCell>
-                          <CButton size="sm" color="primary" variant="outline" className="me-1" onClick={() => openEdit(r)}>Засах</CButton>
-                          <CButton size="sm" color="danger" variant="outline" onClick={() => remove(r.id)}
-                            disabled={deleting === r.id}>
-                            {deleting === r.id ? <CSpinner size="sm" /> : 'Устгах'}
-                          </CButton>
-                        </CTableDataCell>
-                      </CTableRow>
-                    ))}
-                  </CTableBody>
-                </CTable>
-              )}
-            </CCardBody>
-          </CCard>
-        </CCol>
-
-        {/* Access check panel */}
-        <CCol lg={4}>
-          <CCard>
-            <CCardHeader className="fw-semibold">Нэвтрэх эрх шалгах</CCardHeader>
-            <CCardBody>
-              <CRow className="g-3">
-                <CCol sm={12}>
-                  <CFormLabel>Ажилтан</CFormLabel>
-                  <CFormSelect value={checkEmp} onChange={e => { setCheckEmp(e.target.value); setCheckResult(null) }}>
-                    <option value="">-- Сонгох --</option>
-                    {emps.map(e => <option key={e.id} value={e.id}>{e.emp_code} — {e.last_name} {e.first_name}</option>)}
-                  </CFormSelect>
-                </CCol>
-                <CCol sm={12}>
-                  <CFormLabel>Бүс</CFormLabel>
-                  <CFormSelect value={checkZone} onChange={e => { setCheckZone(e.target.value); setCheckResult(null) }}>
-                    <option value="">-- Сонгох --</option>
-                    {zoneOptions.map(z => <option key={z} value={z}>{z}</option>)}
-                  </CFormSelect>
-                </CCol>
-                <CCol sm={12}>
-                  <CButton color="primary" className="w-100" onClick={checkAccess}
-                    disabled={checking || !checkEmp || !checkZone}>
-                    {checking ? <CSpinner size="sm" /> : 'Шалгах'}
-                  </CButton>
-                </CCol>
-              </CRow>
-
-              {checkResult && (
-                <CAlert className="mt-3 mb-0" color={checkResult.allowed ? 'success' : 'danger'}>
-                  <div className="fw-bold mb-1">
-                    {checkResult.allowed ? '✓ Нэвтрэх эрхтэй' : '✗ Нэвтрэх эрхгүй'}
-                  </div>
-                  {checkResult.reason && (
-                    <div className="small">{checkResult.reason}</div>
-                  )}
+    <div>
+      <h4 style={{ fontWeight: 700, marginBottom: 16 }}>Талбайн нэвтрэх дүрэм</h4>
+      <Row gutter={[16, 16]}>
+        <Col lg={16} xs={24}>
+          <Card
+            title="Бүсийн дүрмүүд"
+            extra={<Button type="primary" size="small" icon={<PlusOutlined />} onClick={openCreate}>Дүрэм нэмэх</Button>}
+          >
+            <Table rowKey="id" size="middle" loading={loading}
+              columns={cols} dataSource={rules}
+              pagination={{ pageSize: 20, hideOnSinglePage: true }}
+              locale={{ emptyText: 'Дүрэм алга' }} />
+          </Card>
+        </Col>
+        <Col lg={8} xs={24}>
+          <Card title={<><SafetyOutlined /> Нэвтрэх эрх шалгах</>}>
+            <Form layout="vertical">
+              <Form.Item label="Ажилтан">
+                <Select value={checkEmp} onChange={(v) => { setCheckEmp(v); setCheckResult(null) }}
+                  showSearch optionFilterProp="label" allowClear placeholder="-- Сонгох --"
+                  options={emps.map(e => ({ value: e.id, label: `${e.emp_code} — ${e.last_name} ${e.first_name}` }))} />
+              </Form.Item>
+              <Form.Item label="Бүс">
+                <Select value={checkZone} onChange={(v) => { setCheckZone(v); setCheckResult(null) }}
+                  allowClear placeholder="-- Сонгох --"
+                  options={zoneOptions.map(z => ({ value: z, label: z }))} />
+              </Form.Item>
+              <Button type="primary" block onClick={checkAccess}
+                loading={checking} disabled={!checkEmp || !checkZone}>Шалгах</Button>
+            </Form>
+            {checkResult && (
+              <Alert style={{ marginTop: 12 }}
+                type={checkResult.allowed ? 'success' : 'error'} showIcon
+                message={checkResult.allowed ? '✓ Нэвтрэх эрхтэй' : '✗ Нэвтрэх эрхгүй'}
+                description={<>
+                  {checkResult.reason && <div>{checkResult.reason}</div>}
                   {checkResult.missing_trainings?.length > 0 && (
-                    <div className="mt-2">
-                      <div className="small fw-semibold">Дутуу сургалтууд:</div>
+                    <div style={{ marginTop: 8 }}>
+                      <div style={{ fontWeight: 600, fontSize: 12 }}>Дутуу сургалтууд:</div>
                       {checkResult.missing_trainings.map((t, i) => (
-                        <CBadge key={i} color="warning" textColor="dark" className="me-1 mt-1">{t}</CBadge>
+                        <Tag key={i} color="warning" style={{ marginTop: 4 }}>{t}</Tag>
                       ))}
                     </div>
                   )}
-                </CAlert>
-              )}
-            </CCardBody>
-          </CCard>
-        </CCol>
-      </CRow>
+                </>} />
+            )}
+          </Card>
+        </Col>
+      </Row>
 
-      {/* CRUD modal */}
-      <CModal visible={modal} onClose={() => setModal(false)} size="lg">
-        <CModalHeader><CModalTitle>{editing ? 'Дүрэм засах' : 'Дүрэм нэмэх'}</CModalTitle></CModalHeader>
-        <CModalBody>
-          <CForm><CRow className="g-3">
-            <CCol sm={6}><CFormLabel>Бүсийн нэр <span className="text-danger">*</span></CFormLabel>
-              <CFormInput value={form.zone_name || ''} onChange={e => setForm(f => ({...f, zone_name: e.target.value}))} /></CCol>
-            <CCol sm={6}><CFormLabel>RFID шаардлага</CFormLabel>
-              <CFormSelect value={form.requires_rfid ? 'true' : 'false'}
-                onChange={e => setForm(f => ({...f, requires_rfid: e.target.value === 'true'}))}>
-                <option value="true">Шаардлагатай</option>
-                <option value="false">Шаардлагагүй</option>
-              </CFormSelect>
-            </CCol>
-            <CCol sm={12}><CFormLabel>Тайлбар</CFormLabel>
-              <CFormInput value={form.description || ''} onChange={e => setForm(f => ({...f, description: e.target.value}))} /></CCol>
-            <CCol sm={12}>
-              <CFormLabel>Шаардлагатай сургалтууд</CFormLabel>
-              <CCard className="p-3" style={{ maxHeight: 200, overflowY: 'auto' }}>
-                {trainings.length === 0
-                  ? <span className="text-medium-emphasis small">Сургалт байхгүй</span>
-                  : trainings.map(t => (
-                    <CFormCheck
-                      key={t.id} id={`tr-${t.id}`}
-                      label={`${t.name}${t.is_mandatory ? ' ⚠' : ''}`}
-                      checked={form.required_training_ids?.includes(t.id)}
-                      onChange={() => toggleTraining(t.id)}
-                    />
-                  ))
-                }
-              </CCard>
-            </CCol>
-          </CRow></CForm>
-        </CModalBody>
-        <CModalFooter>
-          <CButton color="secondary" onClick={() => setModal(false)}>Болих</CButton>
-          <CButton color="primary" onClick={save} disabled={saving}>
-            {saving ? <CSpinner size="sm" /> : 'Хадгалах'}
-          </CButton>
-        </CModalFooter>
-      </CModal>
+      <Modal
+        title={editing ? 'Дүрэм засах' : 'Дүрэм нэмэх'}
+        open={modal} onOk={save} onCancel={() => setModal(false)}
+        okText="Хадгалах" cancelText="Болих" confirmLoading={saving}
+        width={720} destroyOnClose
+      >
+        <Form form={form} layout="vertical" requiredMark={false}>
+          <Row gutter={12}>
+            <Col span={12}>
+              <Form.Item name="zone_name" label="Бүсийн нэр" rules={[{ required: true }]}><Input /></Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="requires_rfid" label="RFID шаардлага">
+                <Select options={[
+                  { value: true, label: 'Шаардлагатай' },
+                  { value: false, label: 'Шаардлагагүй' },
+                ]} />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Form.Item name="description" label="Тайлбар"><Input /></Form.Item>
+          <Form.Item name="required_training_ids" label="Шаардлагатай сургалтууд">
+            <Checkbox.Group style={{ display: 'flex', flexDirection: 'column', maxHeight: 200, overflowY: 'auto' }}>
+              {trainings.length === 0
+                ? <span style={{ color: '#8c8c8c', fontSize: 12 }}>Сургалт байхгүй</span>
+                : trainings.map(t => (
+                  <Checkbox key={t.id} value={t.id}>{t.name}{t.is_mandatory ? ' ⚠' : ''}</Checkbox>))}
+            </Checkbox.Group>
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   )
 }
