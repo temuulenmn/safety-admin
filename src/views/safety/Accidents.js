@@ -3,6 +3,7 @@ import { useSelector } from 'react-redux'
 import {
   Row, Col, Card, Table, Tag, Button, Modal, Form, Input, Select, DatePicker,
   InputNumber, Space, Statistic, Alert, Checkbox, Popconfirm, Descriptions, message,
+  Divider, Empty, Spin, Typography,
 } from 'antd'
 import { PlusOutlined, WarningOutlined } from '@ant-design/icons'
 import api from 'src/services/api'
@@ -12,6 +13,15 @@ const SEVERITY_COLOR = { minor: 'blue', moderate: 'orange', severe: 'red', fatal
 const SEVERITY_LABEL = { minor: 'Хөнгөн', moderate: 'Дунд', severe: 'Хүнд', fatal: 'Нас барсан' }
 const STATUS_COLOR = { reported: 'orange', investigating: 'blue', closed: 'success', archived: 'default' }
 const STATUS_LABEL = { reported: 'Бүртгэсэн', investigating: 'Судалж буй', closed: 'Хаагдсан', archived: 'Архивт' }
+
+// Ослын үеийн хамгаалах хэрэгслийн нэршил
+const PPE_LABEL = {
+  helmet: 'Каска', vest: 'Хантааз', boots: 'Гутал',
+  gloves: 'Бээлий', glasses: 'Нүдний шил', harness: 'Аюулгүйн бүс',
+  mask: 'Амны хаалт', earplug: 'Чихэвч',
+}
+const PPE_ORDER = ['helmet', 'vest', 'boots', 'gloves', 'glasses']
+const ppeName = t => PPE_LABEL[t] || t
 
 export default function Accidents() {
   const currentProjectId = useSelector(s => s.currentProjectId)
@@ -29,6 +39,7 @@ export default function Accidents() {
   const [editing, setEditing] = useState(null)
   const [saving,  setSaving]  = useState(false)
   const [detail,  setDetail]  = useState(null)
+  const [detailLoading, setDetailLoading] = useState(false)
 
   useEffect(() => {
     api.getEmployees({ status: 'active', limit: 500 }).then(r => setEmps(r.data || []))
@@ -48,6 +59,15 @@ export default function Accidents() {
     }).finally(() => setLoading(false))
   }, [severity, status, currentProjectId])
   useEffect(() => { load(1, page.pageSize) /* eslint-disable-next-line */ }, [severity, status, currentProjectId])
+
+  const openDetail = (r) => {
+    setDetail(r)                       // шууд нээж, контекстийг ард нь нөхнө
+    setDetailLoading(true)
+    api.getAccident(r.id)
+      .then(res => setDetail(d => (d && d.id === r.id ? { ...d, ...res.data } : d)))
+      .catch(() => {})
+      .finally(() => setDetailLoading(false))
+  }
 
   const openCreate = () => {
     setEditing(null); form.resetFields()
@@ -122,7 +142,7 @@ export default function Accidents() {
       render: v => <Tag color={STATUS_COLOR[v]}>{STATUS_LABEL[v]}</Tag> },
     { title: '', width: 130, render: (_, r) => (
       <Space size="small">
-        <Button size="small" onClick={() => setDetail(r)}>Үзэх</Button>
+        <Button size="small" onClick={() => openDetail(r)}>Үзэх</Button>
         <Button size="small" onClick={() => openEdit(r)}>Засах</Button>
         <Popconfirm title="Устгах уу?" onConfirm={() => remove(r.id)} okText="Тийм" cancelText="Үгүй">
           <Button size="small" danger>×</Button>
@@ -276,6 +296,131 @@ export default function Accidents() {
                 : <span style={{ color: '#cf1322' }}>✗ Мэдэгдээгүй</span>}
             </Descriptions.Item>
           </Descriptions>
+        )}
+
+        {/* ── Ослын үеийн нөхцөл: тухайн өдрийн ХХХ ба авсан багаж ── */}
+        {detail && (
+          <Spin spinning={detailLoading}>
+            <Divider orientation="left" style={{ marginTop: 24 }}>
+              Ослын үеийн нөхцөл — {dayjs(detail.occurred_at).format('YYYY-MM-DD')}
+            </Divider>
+
+            {!detail.context && !detailLoading && (
+              <Typography.Text type="secondary">Тухайн өдрийн RFID бүртгэл олдсонгүй.</Typography.Text>
+            )}
+
+            {detail.context && (
+              <>
+                {/* Ирц */}
+                <Descriptions column={2} bordered size="small" style={{ marginBottom: 12 }}>
+                  <Descriptions.Item label="Талбайд орсон">
+                    {detail.context.attendance?.check_in
+                      ? dayjs(detail.context.attendance.check_in).format('HH:mm')
+                      : '—'}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="Гарсан">
+                    {detail.context.attendance?.check_out
+                      ? dayjs(detail.context.attendance.check_out).format('HH:mm')
+                      : '—'}
+                  </Descriptions.Item>
+                </Descriptions>
+
+                {/* Хамгаалах хэрэгсэл — талбайд орох үеийн RFID илрүүлэлт */}
+                <div style={{ marginBottom: 6, fontWeight: 500 }}>
+                  Хамгаалах хэрэгсэл (RFID илрүүлэлт)
+                  {detail.context.ppe_scan && (
+                    <Typography.Text type="secondary" style={{ fontWeight: 400, marginLeft: 8 }}>
+                      {dayjs(detail.context.ppe_scan.checked_at).format('HH:mm')}
+                      {detail.context.ppe_scan.location_name ? ` · ${detail.context.ppe_scan.location_name}` : ''}
+                    </Typography.Text>
+                  )}
+                </div>
+                {detail.context.ppe_scan ? (
+                  <div style={{ marginBottom: 16 }}>
+                    <Space size={[6, 6]} wrap>
+                      {(() => {
+                        const det  = (detail.context.ppe_scan.items_detected || []).map(x => x.type || x)
+                        const miss = detail.context.ppe_scan.missing_items || []
+                        const all  = [...new Set([...PPE_ORDER, ...det, ...miss])]
+                        return all.map(t => {
+                          // улаан = заавал өмсөх боловч дутуу · шар = өмсөөгүй (заавал биш) · ногоон = өмссөн
+                          const worn = det.includes(t)
+                          const mandatoryGap = miss.includes(t)
+                          return (
+                            <Tag key={t} color={mandatoryGap ? 'red' : (worn ? 'success' : 'orange')}>
+                              {worn ? '✓ ' : '✗ '}{ppeName(t)}
+                              {!worn && !mandatoryGap ? ' (илрээгүй)' : ''}
+                            </Tag>
+                          )
+                        })
+                      })()}
+                    </Space>
+                    {(() => {
+                      const det  = (detail.context.ppe_scan.items_detected || []).map(x => x.type || x)
+                      const miss = detail.context.ppe_scan.missing_items || []
+                      const notWorn = PPE_ORDER.filter(t => !det.includes(t))
+                      if (!notWorn.length) return null
+                      return (
+                        <Alert type={miss.length ? 'error' : 'warning'} showIcon style={{ marginTop: 8 }}
+                          message={`Ослын үед өмсөөгүй: ${notWorn.map(ppeName).join(', ')}`}
+                          description={miss.length
+                            ? `Үүнээс заавал өмсөх ёстой: ${miss.map(ppeName).join(', ')}`
+                            : 'Заавал өмсөх жагсаалтад ороогүй ч ослын шалтгаантай холбоотой байж болзошгүй.'} />
+                      )
+                    })()}
+                  </div>
+                ) : (
+                  <Empty style={{ marginBottom: 16 }} image={Empty.PRESENTED_IMAGE_SIMPLE}
+                    description="Тухайн өдөр PPE скан бүртгэгдээгүй" />
+                )}
+
+                {/* Өглөөний шалгалт */}
+                {detail.context.morning_inspection && (
+                  <div style={{ marginBottom: 16 }}>
+                    <div style={{ marginBottom: 6, fontWeight: 500 }}>
+                      Өглөөний шалгалт
+                      <Typography.Text type="secondary" style={{ fontWeight: 400, marginLeft: 8 }}>
+                        {dayjs(detail.context.morning_inspection.inspected_at).format('HH:mm')}
+                        {detail.context.morning_inspection.inspector_name ? ` · ${detail.context.morning_inspection.inspector_name}` : ''}
+                      </Typography.Text>
+                    </div>
+                    <Space size={[6, 6]} wrap>
+                      <Tag color={detail.context.morning_inspection.passed ? 'success' : 'red'}>
+                        {detail.context.morning_inspection.passed ? '✓ Тэнцсэн' : '✗ Тэнцээгүй'}
+                      </Tag>
+                      {Object.entries(detail.context.morning_inspection.ppe_items || {}).map(([k, v]) => (
+                        <Tag key={k} color={v ? 'success' : 'red'}>{v ? '✓ ' : '✗ '}{ppeName(k)}</Tag>
+                      ))}
+                    </Space>
+                  </div>
+                )}
+
+                {/* Ослын мөчид гар дээр байсан багаж */}
+                <div style={{ marginBottom: 6, fontWeight: 500 }}>
+                  Ослын мөчид авсан багаж ({(detail.context.tools_in_hand || []).length})
+                </div>
+                {(detail.context.tools_in_hand || []).length ? (
+                  <Table
+                    size="small" rowKey="id" pagination={false}
+                    dataSource={detail.context.tools_in_hand}
+                    columns={[
+                      { title: 'Код', dataIndex: 'code', width: 100 },
+                      { title: 'Нэр', dataIndex: 'name' },
+                      { title: 'Ангилал', dataIndex: 'category', width: 100, render: v => v || '—' },
+                      { title: 'RFID', dataIndex: 'rfid_tag', width: 210,
+                        render: v => <span style={{ fontFamily: 'monospace', fontSize: 12 }}>{v}</span> },
+                      { title: 'Авсан', dataIndex: 'checked_out_at', width: 70,
+                        render: v => dayjs(v).format('HH:mm') },
+                      { title: 'Буцаасан', dataIndex: 'returned_at', width: 80,
+                        render: v => v ? dayjs(v).format('HH:mm') : <Tag color="orange">Буцаагаагүй</Tag> },
+                    ]}
+                  />
+                ) : (
+                  <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Багаж аваагүй" />
+                )}
+              </>
+            )}
+          </Spin>
         )}
       </Modal>
     </div>
