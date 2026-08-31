@@ -171,6 +171,7 @@ const api = {
 
   // ── Violations & penalty fund ────────────────────────────────────
   getViolationStats:   (params)   => client.get('/violations/stats', { params }),
+  getViolationMonths: (params) => client.get('/violations/months', { params }),
   getViolations:       (params)   => client.get('/violations', { params }),
   createViolation:     (data)     => client.post('/violations', data),
   updateViolation:     (id, data) => client.put(`/violations/${id}`, data),

@@ -27,6 +27,8 @@ export default function Violations() {
   const [emps,    setEmps]    = useState([])
   const [statusF, setStatusF] = useState()
   const [typeF,   setTypeF]   = useState()
+  const [monthF,  setMonthF]  = useState()      // 'YYYY-MM'
+  const [months,  setMonths]  = useState([])
   const [rows,    setRows]    = useState([])
   const [loading, setLoading] = useState(false)
   const [page,    setPage]    = useState({ current: 1, pageSize: 25, total: 0 })
@@ -49,17 +51,25 @@ export default function Violations() {
       page: p, limit: l,
       status: statusF || undefined,
       violation_type: typeF || undefined,
+      month: monthF || undefined,
       project_id: currentProjectId || undefined,
     }).then(r => {
       setRows(r.data || [])
       setPage({ current: p, pageSize: l, total: r.total || (r.data || []).length })
     }).finally(() => setLoading(false))
-  }, [statusF, typeF, currentProjectId])
-  useEffect(() => { load(1, page.pageSize) /* eslint-disable-next-line */ }, [statusF, typeF, currentProjectId])
+  }, [statusF, typeF, monthF, currentProjectId])
+  useEffect(() => { load(1, page.pageSize) /* eslint-disable-next-line */ }, [statusF, typeF, monthF, currentProjectId])
+
+  // Боломжит он-сарууд (шинэ нь эхэнд). Хуудаслалттай тул серверээс авна.
+  useEffect(() => {
+    api.getViolationMonths({ project_id: currentProjectId || undefined })
+      .then(r => setMonths(r.data || []))
+      .catch(() => setMonths([]))
+  }, [currentProjectId])
 
   const exportExcel = async () => {
     const r = await api.getViolations({ page: 1, limit: 5000,
-      status: statusF || undefined, violation_type: typeF || undefined,
+      status: statusF || undefined, violation_type: typeF || undefined, month: monthF || undefined,
       project_id: currentProjectId || undefined })
     downloadCSV('zorchil', ['Огноо','Код','Ажилтан','Хэлтэс','Төрөл','Бүс','Төсөл','Торгууль','Төлөв'],
       (r.data || []).map(v => [
@@ -95,8 +105,24 @@ export default function Violations() {
   }
 
   const cols = [
-    { title: 'Огноо', dataIndex: 'occurred_at', width: 150,
-      render: v => v ? dayjs(v).format('MM-DD HH:mm') : '—' },
+    { title: 'Огноо', dataIndex: 'occurred_at', width: 165,
+      render: (v, r, idx) => {
+        if (!v) return '—'
+        const d = dayjs(v)
+        // Сар солигдох мөрөнд он-сарыг бүдүүнээр харуулж бүлгийг ялгана
+        const prev = idx > 0 ? rows[idx - 1]?.occurred_at : null
+        const newMonth = !prev || dayjs(prev).format('YYYY-MM') !== d.format('YYYY-MM')
+        return (
+          <div>
+            {newMonth && (
+              <div style={{ fontWeight: 700, fontSize: 12, color: '#1677ff', marginBottom: 2 }}>
+                {d.format('YYYY оны M-р сар')}
+              </div>
+            )}
+            <span>{d.format('MM-DD HH:mm')}</span>
+          </div>
+        )
+      } },
     { title: 'Код', dataIndex: 'emp_code', width: 100 },
     { title: 'Ажилтан', dataIndex: 'full_name' },
     { title: 'Хэлтэс', dataIndex: 'department', width: 130, render: v => v || '—' },
@@ -178,7 +204,41 @@ export default function Violations() {
               placeholder="Бүх төрөл" style={{ width: '100%' }}
               options={Object.entries(TYPE_LABEL).map(([k, l]) => ({ value: k, label: l }))} />
           </Col>
+          <Col xs={12} sm={6}>
+            <Select value={monthF} onChange={setMonthF} allowClear
+              placeholder="Бүх сар" style={{ width: '100%' }}
+              options={months.map(m => ({
+                value: m.month,
+                label: `${dayjs(m.month + '-01').format('YYYY оны M-р сар')} · ${m.total}`,
+              }))} />
+          </Col>
         </Row>
+        {months.length > 0 && (
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+            {months.map(m => {
+              const active = monthF === m.month
+              return (
+                <div key={m.month}
+                  onClick={() => setMonthF(active ? undefined : m.month)}
+                  style={{
+                    cursor: 'pointer', borderRadius: 6, padding: '8px 12px', minWidth: 132,
+                    border: `1px solid ${active ? '#1677ff' : '#f0f0f0'}`,
+                    background: active ? '#f0f7ff' : '#fafafa',
+                  }}>
+                  <div style={{ fontWeight: 600, fontSize: 13 }}>
+                    {dayjs(m.month + '-01').format('YYYY оны M-р сар')}
+                  </div>
+                  <div style={{ fontSize: 12, color: '#8c8c8c', marginTop: 2 }}>
+                    {m.total} зөрчил · {Number(m.amount).toLocaleString('mn-MN')}₮
+                  </div>
+                  <div style={{ fontSize: 11, color: '#8c8c8c' }}>
+                    сануулга {m.warnings} · торгууль {m.penalties}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
         <Table rowKey="id" size="middle" loading={loading}
           columns={cols} dataSource={rows}
           pagination={{ ...page, onChange: (p, s) => load(p, s) }} />
