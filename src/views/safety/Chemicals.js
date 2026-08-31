@@ -5,6 +5,7 @@ import {
 } from 'antd'
 import { PlusOutlined, FileTextOutlined, WarningOutlined } from '@ant-design/icons'
 import api from 'src/services/api'
+import { useCrud } from 'src/hooks/useCrud'
 import dayjs from 'dayjs'
 
 const HAZARD_LABEL = {
@@ -17,64 +18,39 @@ const HAZARD_COLOR = {
 }
 
 export default function Chemicals() {
-  const [rows,    setRows]    = useState([])
   const [stats,   setStats]   = useState(null)
-  const [loading, setLoading] = useState(true)
   const [hazF,    setHazF]    = useState()
   const [lowStock,setLowStock]= useState(false)
 
-  const [modal,   setModal]   = useState(false)
-  const [form]    = Form.useForm()
-  const [editing, setEditing] = useState(null)
-  const [saving,  setSaving]  = useState(false)
+  // Жагсаалт, модаль, форм, хадгалалт, устгалт — бүгд useCrud дотор.
+  // Энд зөвхөн химийн бодисын онцлог (огнооны хөрвүүлэлт, анхдагч утга) үлдэнэ.
+  const D = (v) => (v ? dayjs(v) : null)
+  const F = (v) => (v ? v.format('YYYY-MM-DD') : null)
 
-  const load = useCallback(() => {
-    setLoading(true)
-    Promise.all([
-      api.getChemicals({ hazard_class: hazF, low_stock: lowStock ? 'true' : undefined }),
-      api.getChemicalStats(),
-    ]).then(([r, s]) => { setRows(r.data || []); setStats(s.data) })
-      .finally(() => setLoading(false))
-  }, [hazF, lowStock])
-  useEffect(load, [load])
-
-  const openCreate = () => {
-    setEditing(null); form.resetFields()
-    form.setFieldsValue({ hazard_class: 'other', unit: 'литр', quantity: 0 })
-    setModal(true)
-  }
-  const openEdit = (r) => {
-    setEditing(r.id)
-    form.setFieldsValue({
-      name: r.name, cas_number: r.cas_number || '', category: r.category || '',
-      hazard_class: r.hazard_class, storage_location: r.storage_location || '',
-      unit: r.unit || 'литр', quantity: Number(r.quantity || 0),
-      reorder_level: r.reorder_level ? Number(r.reorder_level) : null,
-      msds_url: r.msds_url || '', supplier: r.supplier || '',
-      purchased_at: r.purchased_at ? dayjs(r.purchased_at) : null,
-      expiry_date:  r.expiry_date  ? dayjs(r.expiry_date)  : null,
+  const crud = useCrud({
+    list:   (p) => api.getChemicals(p),
+    create: (d) => api.createChemical(d),
+    update: (id, d) => api.updateChemical(id, d),
+    remove: (id) => api.deleteChemical(id),
+    params: { hazard_class: hazF, low_stock: lowStock ? 'true' : undefined },
+    defaults: { hazard_class: 'other', unit: 'литр', quantity: 0 },
+    toForm: (r) => ({
+      ...r,
+      quantity: Number(r.quantity || 0),
+      reorder_level: r.reorder_level != null ? Number(r.reorder_level) : null,
       reported_to_auth: !!r.reported_to_auth,
-      reported_at: r.reported_at ? dayjs(r.reported_at) : null,
-      notes: r.notes || '',
-    })
-    setModal(true)
-  }
-  const save = async () => {
-    try {
-      const v = await form.validateFields()
-      setSaving(true)
-      const payload = {
-        ...v,
-        purchased_at: v.purchased_at ? v.purchased_at.format('YYYY-MM-DD') : null,
-        expiry_date:  v.expiry_date  ? v.expiry_date.format('YYYY-MM-DD')  : null,
-        reported_at:  v.reported_at  ? v.reported_at.format('YYYY-MM-DD')  : null,
-      }
-      editing ? await api.updateChemical(editing, payload) : await api.createChemical(payload)
-      setModal(false); load(); message.success('Хадгалагдлаа')
-    } catch (e) { if (e?.errorFields) return }
-    finally { setSaving(false) }
-  }
-  const remove = async (id) => { await api.deleteChemical(id); load(); message.success('Устгагдлаа') }
+      purchased_at: D(r.purchased_at),
+      expiry_date:  D(r.expiry_date),
+      reported_at:  D(r.reported_at),
+    }),
+    toApi: (v) => ({
+      ...v,
+      purchased_at: F(v.purchased_at),
+      expiry_date:  F(v.expiry_date),
+      reported_at:  F(v.reported_at),
+    }),
+    onLoaded: () => { api.getChemicalStats().then(r => setStats(r.data)).catch(() => {}) },
+  })
 
   const cols = [
     { title: 'Нэр', dataIndex: 'name', render: v => <strong>{v}</strong> },
@@ -100,8 +76,8 @@ export default function Chemicals() {
       render: v => v ? dayjs(v).format('YYYY-MM-DD') : '—' },
     { title: '', width: 120, render: (_, r) => (
       <Space size="small">
-        <Button size="small" onClick={() => openEdit(r)}>Засах</Button>
-        <Popconfirm title="Устгах уу?" onConfirm={() => remove(r.id)} okText="Тийм" cancelText="Үгүй">
+        <Button size="small" onClick={() => crud.openEdit(r)}>Засах</Button>
+        <Popconfirm title="Устгах уу?" onConfirm={() => crud.destroy(r.id)} okText="Тийм" cancelText="Үгүй">
           <Button size="small" danger>×</Button>
         </Popconfirm>
       </Space>
@@ -112,7 +88,7 @@ export default function Chemicals() {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <h4 style={{ margin: 0, fontWeight: 700 }}>Химийн бодис</h4>
-        <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>Бодис нэмэх</Button>
+        <Button type="primary" icon={<PlusOutlined />} onClick={() => crud.openCreate()}>Бодис нэмэх</Button>
       </div>
 
       <Alert type="info" showIcon style={{ marginBottom: 16 }}
@@ -144,15 +120,13 @@ export default function Chemicals() {
             <Checkbox checked={lowStock} onChange={e => setLowStock(e.target.checked)}>Зөвхөн нөөц бага</Checkbox>
           </Col>
         </Row>
-        <Table rowKey="id" size="middle" loading={loading}
-          columns={cols} dataSource={rows}
-          pagination={{ pageSize: 20 }} locale={{ emptyText: 'Бодис алга' }} />
+        <Table {...crud.tableProps} size="middle" columns={cols}
+          locale={{ emptyText: 'Бодис алга' }} />
       </Card>
 
-      <Modal open={modal} onOk={save} onCancel={() => setModal(false)}
-        title={editing ? 'Бодис засах' : 'Бодис нэмэх'} confirmLoading={saving}
-        okText="Хадгалах" cancelText="Болих" width={720} destroyOnClose>
-        <Form form={form} layout="vertical" requiredMark={false}>
+      <Modal {...crud.modalProps}
+        title={crud.editing ? 'Бодис засах' : 'Бодис нэмэх'} width={720}>
+        <Form {...crud.formProps} requiredMark={false}>
           <Row gutter={12}>
             <Col span={16}><Form.Item name="name" label="Нэр" rules={[{ required: true }]}><Input /></Form.Item></Col>
             <Col span={8}><Form.Item name="cas_number" label="CAS №"><Input placeholder="7732-18-5" /></Form.Item></Col>

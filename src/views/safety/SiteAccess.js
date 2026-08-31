@@ -5,58 +5,38 @@ import {
 } from 'antd'
 import { PlusOutlined, EditOutlined, DeleteOutlined, SafetyOutlined } from '@ant-design/icons'
 import api from 'src/services/api'
+import { useCrud } from 'src/hooks/useCrud'
 
 export default function SiteAccess() {
-  const [rules,     setRules]    = useState([])
   const [trainings, setTrainings]= useState([])
   const [emps,      setEmps]     = useState([])
-  const [loading,   setLoading]  = useState(true)
-  const [modal,     setModal]    = useState(false)
-  const [form]      = Form.useForm()
-  const [editing,   setEditing]  = useState(null)
-  const [saving,    setSaving]   = useState(false)
 
   const [checkEmp,  setCheckEmp] = useState()
   const [checkZone, setCheckZone]= useState()
   const [checkResult, setCheckResult] = useState(null)
   const [checking,  setChecking] = useState(false)
 
-  useEffect(() => {
-    setLoading(true)
-    Promise.all([
-      api.getSiteAccess(), api.getTrainings(),
-      api.getEmployees({ status: 'active', limit: 500 }),
-    ]).then(([r, t, e]) => {
-      setRules(r.data || []); setTrainings(t.data || []); setEmps(e.data || [])
-    }).finally(() => setLoading(false))
-  }, [])
-
-  const load = () => api.getSiteAccess().then(r => setRules(r.data || []))
-
-  const openCreate = () => {
-    setEditing(null); form.resetFields()
-    form.setFieldsValue({ requires_rfid: true, required_training_ids: [] })
-    setModal(true)
-  }
-  const openEdit = (r) => {
-    setEditing(r.id)
-    form.setFieldsValue({
+  const crud = useCrud({
+    list:   () => api.getSiteAccess(),
+    create: (d) => api.createSiteAccess(d),
+    update: (id, d) => api.updateSiteAccess(id, d),
+    remove: (id) => api.deleteSiteAccess(id),
+    defaults: { requires_rfid: true, required_training_ids: [] },
+    toForm: (r) => ({
       zone_name: r.zone_name, description: r.description || '',
       requires_rfid: r.requires_rfid,
       required_training_ids: r.required_training_ids || [],
-    })
-    setModal(true)
-  }
-  const save = async () => {
-    try {
-      const v = await form.validateFields()
-      setSaving(true)
-      editing ? await api.updateSiteAccess(editing, v) : await api.createSiteAccess(v)
-      setModal(false); load(); message.success('Хадгалагдлаа')
-    } catch (e) { if (e?.errorFields) return }
-    finally { setSaving(false) }
-  }
-  const remove = async (id) => { await api.deleteSiteAccess(id); load(); message.success('Устгагдлаа') }
+    }),
+  })
+  const rules = crud.rows
+
+  useEffect(() => {
+    Promise.all([
+      api.getTrainings(),
+      api.getEmployees({ status: 'active', limit: 500 }),
+    ]).then(([t, e]) => { setTrainings(t.data || []); setEmps(e.data || []) })
+      .catch(() => {})
+  }, [])
 
   const checkAccess = async () => {
     if (!checkEmp || !checkZone) return
@@ -83,8 +63,8 @@ export default function SiteAccess() {
     { title: 'Тайлбар', dataIndex: 'description', render: v => v || '—' },
     { title: '', width: 120, render: (_, r) => (
       <Space size="small">
-        <Button size="small" icon={<EditOutlined />} onClick={() => openEdit(r)} />
-        <Popconfirm title="Дүрэм устгах уу?" onConfirm={() => remove(r.id)} okText="Тийм" cancelText="Үгүй">
+        <Button size="small" icon={<EditOutlined />} onClick={() => crud.openEdit(r)} />
+        <Popconfirm title="Дүрэм устгах уу?" onConfirm={() => crud.destroy(r.id)} okText="Тийм" cancelText="Үгүй">
           <Button size="small" icon={<DeleteOutlined />} danger />
         </Popconfirm>
       </Space>
@@ -98,11 +78,9 @@ export default function SiteAccess() {
         <Col lg={16} xs={24}>
           <Card
             title="Бүсийн дүрмүүд"
-            extra={<Button type="primary" size="small" icon={<PlusOutlined />} onClick={openCreate}>Дүрэм нэмэх</Button>}
+            extra={<Button type="primary" size="small" icon={<PlusOutlined />} onClick={() => crud.openCreate()}>Дүрэм нэмэх</Button>}
           >
-            <Table rowKey="id" size="middle" loading={loading}
-              columns={cols} dataSource={rules}
-              pagination={{ pageSize: 20, hideOnSinglePage: true }}
+            <Table {...crud.tableProps} size="middle" columns={cols}
               locale={{ emptyText: 'Дүрэм алга' }} />
           </Card>
         </Col>
@@ -143,12 +121,10 @@ export default function SiteAccess() {
       </Row>
 
       <Modal
-        title={editing ? 'Дүрэм засах' : 'Дүрэм нэмэх'}
-        open={modal} onOk={save} onCancel={() => setModal(false)}
-        okText="Хадгалах" cancelText="Болих" confirmLoading={saving}
-        width={720} destroyOnClose
+        title={crud.editing ? 'Дүрэм засах' : 'Дүрэм нэмэх'}
+        {...crud.modalProps} width={720}
       >
-        <Form form={form} layout="vertical" requiredMark={false}>
+        <Form {...crud.formProps} requiredMark={false}>
           <Row gutter={12}>
             <Col span={12}>
               <Form.Item name="zone_name" label="Бүсийн нэр" rules={[{ required: true }]}><Input /></Form.Item>

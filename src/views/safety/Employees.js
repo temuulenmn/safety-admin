@@ -1,9 +1,9 @@
 import React, { useState, useCallback, useEffect } from 'react'
 import {
   Row, Col, Card, Table, Tag, Button, Modal, Form, Input, Select, DatePicker,
-  InputNumber, Space, Checkbox, message,
+  InputNumber, Space, Checkbox, message, Alert,
 } from 'antd'
-import { PlusOutlined, EditOutlined, QrcodeOutlined } from '@ant-design/icons'
+import { PlusOutlined, EditOutlined, QrcodeOutlined, LockOutlined, UserDeleteOutlined } from '@ant-design/icons'
 import api from 'src/services/api'
 import dayjs from 'dayjs'
 import { MN_BANKS } from 'src/utils/banks'
@@ -24,6 +24,12 @@ export default function Employees() {
   const [saving,  setSaving]  = useState(false)
   const [editing, setEditing] = useState(null)
   const [qrFor,   setQrFor]   = useState(null)
+  const [pinFor,  setPinFor]  = useState(null)   // гар утасны PIN тавих ажилтан
+  const [pinForm] = Form.useForm()
+  const [pinSaving, setPinSaving] = useState(false)
+  const [termFor, setTermFor] = useState(null)   // чөлөөлөх ажилтан
+  const [termForm] = Form.useForm()
+  const [termSaving, setTermSaving] = useState(false)
 
   const [zones, setZones] = useState([])
   useEffect(() => {
@@ -90,10 +96,16 @@ export default function Employees() {
       render: v => v ? dayjs(v).format('YYYY-MM-DD') : '—' },
     { title: 'Төлөв', dataIndex: 'status', width: 130,
       render: v => <Tag color={STATUS_COLOR[v] || 'default'}>{STATUS_LABEL[v] || v}</Tag> },
-    { title: '', width: 130, render: (_, r) => (
+    { title: '', width: 190, render: (_, r) => (
       <Space size="small">
-        <Button size="small" icon={<EditOutlined />} onClick={() => openEdit(r)} />
-        <Button size="small" icon={<QrcodeOutlined />} onClick={() => setQrFor(r)} />
+        <Button size="small" icon={<EditOutlined />} onClick={() => openEdit(r)} title="Засах" />
+        <Button size="small" icon={<QrcodeOutlined />} onClick={() => setQrFor(r)} title="QR код" />
+        <Button size="small" icon={<LockOutlined />} title="Гар утасны PIN"
+                onClick={() => { setPinFor(r); pinForm.resetFields() }} />
+        {r.status !== 'terminated' && (
+          <Button size="small" danger icon={<UserDeleteOutlined />} title="Ажлаас чөлөөлөх"
+                  onClick={() => { setTermFor(r); termForm.setFieldsValue({ termination_date: dayjs() }) }} />
+        )}
       </Space>
     ) },
   ]
@@ -193,6 +205,82 @@ export default function Employees() {
       </Modal>
 
       {qrFor && <EmployeeQrModal employee={qrFor} onClose={() => setQrFor(null)} />}
+
+      {/* Гар утасны аппликейшны PIN. Ажилтан emp_code + PIN-ээр нэвтэрнэ. */}
+      <Modal
+        open={!!pinFor}
+        title={`Гар утасны PIN — ${pinFor?.emp_code || ''} ${pinFor?.first_name || ''}`}
+        okText="Хадгалах" cancelText="Болих" confirmLoading={pinSaving}
+        onCancel={() => setPinFor(null)}
+        onOk={async () => {
+          try {
+            const v = await pinForm.validateFields()
+            setPinSaving(true)
+            await api.setEmployeePin(pinFor.id, { pin: v.pin })
+            message.success(`${pinFor.emp_code} PIN тавигдлаа — ажилтан аппликейшнд нэвтэрч болно`)
+            setPinFor(null)
+          } catch (e) {
+            if (e?.errorFields) return
+            message.error(e?.response?.data?.message || 'PIN хадгалагдсангүй')
+          } finally { setPinSaving(false) }
+        }}>
+        <p style={{ color: '#8c8c8c', marginBottom: 16 }}>
+          Ажилтан «Барилга» аппликейшнд <b>{pinFor?.emp_code}</b> код болон энэ PIN-ээр нэвтэрнэ.
+          PIN нь шифрлэгдэж хадгалагдана — дараа нь харах боломжгүй тул ажилтанд шууд дамжуулна уу.
+        </p>
+        <Form form={pinForm} layout="vertical">
+          <Form.Item name="pin" label="4–6 оронтой PIN"
+            rules={[
+              { required: true, message: 'PIN оруулна уу' },
+              { pattern: /^\d{4,6}$/, message: 'Зөвхөн 4–6 орон тоо' },
+            ]}>
+            <Input.Password maxLength={6} placeholder="жишээ: 4821" autoComplete="new-password" />
+          </Form.Item>
+          <Form.Item name="confirm" label="Давтан оруулах" dependencies={['pin']}
+            rules={[
+              { required: true, message: 'Давтан оруулна уу' },
+              ({ getFieldValue }) => ({
+                validator: (_, v) =>
+                  !v || getFieldValue('pin') === v ? Promise.resolve() : Promise.reject(new Error('PIN таарахгүй байна')),
+              }),
+            ]}>
+            <Input.Password maxLength={6} autoComplete="new-password" />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* Ажлаас чөлөөлөх. Бичлэг устгагдахгүй — статус `terminated` болж,
+          ирц/зөрчил/сургалтын түүх хуулийн шаардлагын дагуу үлдэнэ. */}
+      <Modal
+        open={!!termFor}
+        title={`Ажлаас чөлөөлөх — ${termFor?.emp_code || ''} ${termFor?.first_name || ''} ${termFor?.last_name || ''}`}
+        okText="Чөлөөлөх" cancelText="Болих" okButtonProps={{ danger: true }}
+        confirmLoading={termSaving}
+        onCancel={() => setTermFor(null)}
+        onOk={async () => {
+          try {
+            const v = await termForm.validateFields()
+            setTermSaving(true)
+            await api.terminateEmployee(termFor.id, {
+              termination_date: v.termination_date.format('YYYY-MM-DD'),
+            })
+            message.success(`${termFor.emp_code} чөлөөлөгдлөө`)
+            setTermFor(null); load(page.current, page.pageSize)
+          } catch (e) {
+            if (e?.errorFields) return
+            message.error(e?.response?.data?.message || 'Чөлөөлөхөд алдаа гарлаа')
+          } finally { setTermSaving(false) }
+        }}>
+        <Alert type="warning" showIcon style={{ marginBottom: 16 }}
+          message="Ажилтны түүх хадгалагдана"
+          description="Ирц, зөрчил, сургалт, эрүүл мэндийн үзлэгийн бүртгэл хуулийн шаардлагын дагуу үлдэнэ. Зөвхөн төлөв нь «Чөлөөлөгдсөн» болж, RFID карт болон хаалганы хандалт хаагдана." />
+        <Form form={termForm} layout="vertical">
+          <Form.Item name="termination_date" label="Чөлөөлөх огноо"
+            rules={[{ required: true, message: 'Огноо сонгоно уу' }]}>
+            <DatePicker style={{ width: '100%' }} />
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   )
 }

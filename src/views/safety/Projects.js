@@ -6,6 +6,7 @@ import {
 } from 'antd'
 import { PlusOutlined, DownloadOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons'
 import api from 'src/services/api'
+import { useCrud } from 'src/hooks/useCrud'
 import { downloadCSV } from 'src/utils/exporters'
 import dayjs from 'dayjs'
 
@@ -16,65 +17,44 @@ const STATUS_LABEL = { planned: 'Төлөвлөсөн', active: 'Идэвхтэ�
 
 export default function Projects() {
   const navigate = useNavigate()
-  const [rows,   setRows]   = useState([])
   const [stats,  setStats]  = useState(null)
   const [board,  setBoard]  = useState([])
   const [emps,   setEmps]   = useState([])
-  const [loading,setLoading]= useState(false)
   const [statusF,setStatusF]= useState()
   const [search, setSearch] = useState('')
 
-  const [modal,  setModal]  = useState(false)
-  const [form]   = Form.useForm()
-  const [editing,setEditing]= useState(null)
-  const [saving, setSaving] = useState(false)
+  const D = (v) => (v ? dayjs(v) : null)
+  const F = (v) => (v ? v.format('YYYY-MM-DD') : null)
 
-  const load = useCallback(() => {
-    setLoading(true)
-    api.getProjects({ status: statusF || undefined, search: search || undefined })
-      .then(r => setRows(r.data || [])).finally(() => setLoading(false))
-    api.getProjectStats().then(r => setStats(r.data))
-    api.getProjectLeaderboard().then(r => setBoard(r.data?.projects || []))
-  }, [statusF, search])
-  useEffect(() => { load() }, [load])
-  useEffect(() => { api.getEmployees({ status: 'active', limit: 500 }).then(r => setEmps(r.data || [])) }, [])
+  const crud = useCrud({
+    list:   (p) => api.getProjects(p),
+    create: (d) => api.createProject(d),
+    update: (id, d) => api.updateProject(id, d),
+    remove: (id) => api.deleteProject(id),
+    params: { status: statusF || undefined, search: search || undefined },
+    defaults: { status: 'active' },
+    toForm: (p) => ({
+      ...p,
+      manager_id: p.manager_id || undefined,
+      start_date: D(p.start_date), end_date: D(p.end_date),
+      budget_amount: p.budget_amount != null ? Number(p.budget_amount) : null,
+      area_m2:       p.area_m2       != null ? Number(p.area_m2)       : null,
+    }),
+    toApi: (v) => ({
+      ...v,
+      manager_id: v.manager_id || null,
+      budget_amount: v.budget_amount ?? null,
+      area_m2: v.area_m2 ?? null,
+      start_date: F(v.start_date), end_date: F(v.end_date),
+    }),
+    onLoaded: () => {
+      api.getProjectStats().then(r => setStats(r.data)).catch(() => {})
+      api.getProjectLeaderboard().then(r => setBoard(r.data?.projects || [])).catch(() => {})
+    },
+  })
+  const rows = crud.rows
 
-  const openCreate = () => {
-    setEditing(null); form.resetFields()
-    form.setFieldsValue({ status: 'active' })
-    setModal(true)
-  }
-  const openEdit = (p) => {
-    setEditing(p.id)
-    form.setFieldsValue({
-      code: p.code || '', name: p.name, location: p.location || '', client_name: p.client_name || '',
-      manager_id: p.manager_id || undefined, status: p.status,
-      start_date: p.start_date ? dayjs(p.start_date) : null,
-      end_date:   p.end_date   ? dayjs(p.end_date)   : null,
-      budget_amount: p.budget_amount ? Number(p.budget_amount) : null,
-      area_m2:       p.area_m2       ? Number(p.area_m2)       : null,
-      description: p.description || '',
-    })
-    setModal(true)
-  }
-  const save = async () => {
-    try {
-      const v = await form.validateFields()
-      setSaving(true)
-      const payload = {
-        ...v,
-        manager_id: v.manager_id || null,
-        budget_amount: v.budget_amount ?? null,
-        area_m2: v.area_m2 ?? null,
-        start_date: v.start_date ? v.start_date.format('YYYY-MM-DD') : null,
-        end_date:   v.end_date   ? v.end_date.format('YYYY-MM-DD')   : null,
-      }
-      editing ? await api.updateProject(editing, payload) : await api.createProject(payload)
-      setModal(false); load(); message.success('Хадгалагдлаа')
-    } catch (e) { if (e?.errorFields) return }
-    finally { setSaving(false) }
-  }
-  const remove = async (id) => { await api.deleteProject(id); load(); message.success('Устгагдлаа') }
+  useEffect(() => { api.getEmployees({ status: 'active', limit: 500 }).then(r => setEmps(r.data || [])).catch(() => {}) }, [])
 
   const exportExcel = () => {
     downloadCSV('tosluud',
@@ -116,7 +96,7 @@ export default function Projects() {
     { title: 'Нээлттэй', dataIndex: 'open_tasks', align: 'right', width: 90 },
     { title: '', width: 140, render: (_, p) => (
       <Space size="small" onClick={(e) => e.stopPropagation()}>
-        <Button size="small" icon={<EditOutlined />} onClick={() => openEdit(p)} />
+        <Button size="small" icon={<EditOutlined />} onClick={() => crud.openEdit(p)} />
         <Popconfirm title="Төслийг устгах уу?" onConfirm={() => remove(p.id)} okText="Тийм" cancelText="Үгүй">
           <Button size="small" icon={<DeleteOutlined />} danger />
         </Popconfirm>
@@ -130,7 +110,7 @@ export default function Projects() {
         <h4 style={{ margin: 0, fontWeight: 700 }}>Төсөл / Объект</h4>
         <Space>
           <Button icon={<DownloadOutlined />} onClick={exportExcel}>Excel</Button>
-          <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>Төсөл нэмэх</Button>
+          <Button type="primary" icon={<PlusOutlined />} onClick={() => crud.openCreate()}>Төсөл нэмэх</Button>
         </Space>
       </div>
 
@@ -162,7 +142,7 @@ export default function Projects() {
         <Row gutter={8} style={{ marginBottom: 12 }}>
           <Col xs={24} sm={10}>
             <Input.Search placeholder="Хайх..." value={search}
-              onChange={e => setSearch(e.target.value)} onSearch={load}
+              onChange={e => setSearch(e.target.value)} onSearch={() => crud.reload()}
               allowClear enterButton />
           </Col>
           <Col xs={24} sm={6}>
@@ -171,17 +151,15 @@ export default function Projects() {
               options={Object.entries(STATUS_LABEL).map(([k, l]) => ({ value: k, label: l }))} />
           </Col>
         </Row>
-        <Table rowKey="id" size="middle" loading={loading}
-          columns={cols} dataSource={rows}
-          pagination={{ pageSize: 20 }}
+        <Table {...crud.tableProps} size="middle"
+          columns={cols}
           locale={{ emptyText: 'Төсөл алга. "Төсөл нэмэх"-ээр эхлүүлнэ үү.' }}
           onRow={(r) => ({ onClick: () => navigate(`/projects/${r.id}`), style: { cursor: 'pointer' } })} />
       </Card>
 
-      <Modal open={modal} onOk={save} onCancel={() => setModal(false)}
-        title={editing ? 'Төсөл засах' : 'Төсөл нэмэх'} confirmLoading={saving}
-        okText="Хадгалах" cancelText="Болих" width={720} destroyOnClose>
-        <Form form={form} layout="vertical" requiredMark={false}>
+      <Modal {...crud.modalProps}
+        title={crud.editing ? 'Төсөл засах' : 'Төсөл нэмэх'} width={720}>
+        <Form {...crud.formProps} requiredMark={false}>
           <Row gutter={12}>
             <Col span={8}><Form.Item name="code" label="Код"><Input /></Form.Item></Col>
             <Col span={16}><Form.Item name="name" label="Төслийн нэр" rules={[{ required: true }]}><Input /></Form.Item></Col>

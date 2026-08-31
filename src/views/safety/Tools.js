@@ -1,9 +1,9 @@
 import React, { useEffect, useState, useCallback } from 'react'
 import {
   Row, Col, Card, Table, Tag, Button, Modal, Form, Input, Select, Space,
-  Tabs, Popconfirm, Statistic, message,
+  Tabs, Popconfirm, Statistic, message, Alert,
 } from 'antd'
-import { PlusOutlined, RollbackOutlined } from '@ant-design/icons'
+import { PlusOutlined, RollbackOutlined, ScanOutlined } from '@ant-design/icons'
 import api from 'src/services/api'
 import dayjs from 'dayjs'
 
@@ -12,6 +12,12 @@ const STATUS_LABEL = { available: 'Бэлэн', checked_out: 'Авагдсан',
 
 export default function Tools() {
   const [tab,    setTab]   = useState('inventory')
+
+  // Ширээний UHF уншигчийн горим — багаж + карт хоёрыг дараалан уншуулна
+  const [scanModal, setScanModal] = useState(false)
+  const [scanForm]  = Form.useForm()
+  const [scanning,  setScanning]  = useState(false)
+  const [scanLog,   setScanLog]   = useState([])
   const [stats,  setStats] = useState(null)
   const [emps,   setEmps]  = useState([])
 
@@ -177,6 +183,9 @@ export default function Tools() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <h4 style={{ margin: 0, fontWeight: 700 }}>Багаж хэрэгсэл</h4>
         <Space>
+          <Button icon={<ScanOutlined />} onClick={() => { setScanModal(true); setScanLog([]); scanForm.resetFields() }}>
+            RFID уншуулах
+          </Button>
           <Button icon={<PlusOutlined />} onClick={openCheckout}>Багаж олгох</Button>
           <Button type="primary" icon={<PlusOutlined />} onClick={openToolCreate}>Багаж нэмэх</Button>
         </Space>
@@ -239,6 +248,58 @@ export default function Tools() {
                 value: e.id, label: `${e.emp_code} — ${e.last_name} ${e.first_name}` }))} />
           </Form.Item>
         </Form>
+      </Modal>
+
+      {/* Ширээний UHF уншигчийн горим. Багаж + ажилтны картыг дараалан
+          уншуулахад сервер олголт/буцаалтыг автоматаар шийднэ. */}
+      <Modal open={scanModal} onCancel={() => setScanModal(false)} width={560}
+        title="RFID уншуулж олгох / буцаах" footer={null} destroyOnClose>
+        <Alert type="info" showIcon style={{ marginBottom: 16 }}
+          message="Хоёр тагийг дараалан уншуулна"
+          description="Багажны таг ба ажилтны картыг ширээний уншигч дээр уншуулаад «Гүйцэтгэх» дарна. Багаж чөлөөтэй бол олгогдоно, хэн нэгний гарт байвал буцаагдана." />
+        <Form form={scanForm} layout="vertical"
+          onFinish={async (v) => {
+            setScanning(true)
+            try {
+              const r = await api.scanCheckoutTool({ tool_uid: v.tool_uid.trim(), card_uid: v.card_uid.trim() })
+              const d = r.data || {}
+              const line = {
+                at: new Date().toLocaleTimeString('mn-MN'),
+                action: d.action, tool: d.tool?.code || v.tool_uid,
+                name: d.tool?.name || '', who: d.employee?.full_name || '',
+              }
+              setScanLog(l => [line, ...l].slice(0, 8))
+              message.success(d.action === 'returned' ? `${line.tool} буцаагдлаа` : `${line.tool} → ${line.who}`)
+              scanForm.resetFields()
+              document.getElementById('scan-tool-uid')?.focus()
+              loadTools(1, toolPage.pageSize); loadCos(1, coPage.pageSize); refreshStats()
+            } catch (e) {
+              message.error(e?.response?.data?.message || 'Скан амжилтгүй')
+            } finally { setScanning(false) }
+          }}>
+          <Form.Item name="tool_uid" label="Багажны RFID таг" rules={[{ required: true, message: 'Багажны тагийг уншуулна уу' }]}>
+            <Input id="scan-tool-uid" autoFocus placeholder="уншигч дээр багажийг тавина" style={{ fontFamily: 'monospace' }} autoComplete="off" />
+          </Form.Item>
+          <Form.Item name="card_uid" label="Ажилтны картын UID" rules={[{ required: true, message: 'Ажилтны картыг уншуулна уу' }]}>
+            <Input placeholder="дараа нь ажилтны картыг тавина" style={{ fontFamily: 'monospace' }} autoComplete="off" />
+          </Form.Item>
+          <Button type="primary" htmlType="submit" loading={scanning} block>Гүйцэтгэх</Button>
+        </Form>
+
+        {scanLog.length > 0 && (
+          <>
+            <div style={{ margin: '18px 0 8px', fontWeight: 500 }}>Сүүлийн уншилтууд</div>
+            <Table size="small" rowKey={(_, i) => i} pagination={false} dataSource={scanLog}
+              columns={[
+                { title: 'Цаг', dataIndex: 'at', width: 80 },
+                { title: 'Багаж', dataIndex: 'tool', width: 110,
+                  render: (v, r) => <span>{v} <span style={{ color: '#8c8c8c' }}>{r.name}</span></span> },
+                { title: 'Үйлдэл', dataIndex: 'action', width: 100,
+                  render: v => <Tag color={v === 'returned' ? 'blue' : 'green'}>{v === 'returned' ? 'Буцаав' : 'Олгов'}</Tag> },
+                { title: 'Ажилтан', dataIndex: 'who' },
+              ]} />
+          </>
+        )}
       </Modal>
     </div>
   )

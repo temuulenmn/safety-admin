@@ -6,6 +6,7 @@ import {
 } from 'antd'
 import { PlusOutlined, WarningOutlined } from '@ant-design/icons'
 import api from 'src/services/api'
+import { useCrud } from 'src/hooks/useCrud'
 import dayjs from 'dayjs'
 
 const CAT_LABEL = {
@@ -19,68 +20,42 @@ const scoreLabel = (s) => s == null ? '—' : s >= 15 ? 'Өндөр' : s >= 8 ? 
 
 export default function RiskAssessments() {
   const currentProjectId = useSelector(s => s.currentProjectId)
-  const [rows,    setRows]    = useState([])
   const [zones,   setZones]   = useState([])
   const [stats,   setStats]   = useState(null)
-  const [loading, setLoading] = useState(true)
   const [statusF, setStatusF] = useState()
   const [minScore,setMinScore]= useState()
-
-  const [modal,   setModal]   = useState(false)
-  const [form]    = Form.useForm()
-  const [editing, setEditing] = useState(null)
-  const [saving,  setSaving]  = useState(false)
   const [detail,  setDetail]  = useState(null)
 
-  const load = useCallback(() => {
-    setLoading(true)
-    Promise.all([
-      api.getRiskAssessments({ status: statusF, min_score: minScore, project_id: currentProjectId }),
-      api.getRiskStats(),
-    ]).then(([r, s]) => { setRows(r.data || []); setStats(s.data) })
-      .finally(() => setLoading(false))
-  }, [statusF, minScore, currentProjectId])
-  useEffect(() => { api.getDangerZones().then(r => setZones(r.data || [])) }, [])
-  useEffect(load, [load])
+  const D = (v) => (v ? dayjs(v) : null)
+  const F = (v) => (v ? v.format('YYYY-MM-DD') : null)
 
-  const openCreate = () => {
-    setEditing(null); form.resetFields()
-    form.setFieldsValue({ likelihood: 3, severity: 3, status: 'active', assessed_at: dayjs() })
-    setModal(true)
-  }
-  const openEdit = (r) => {
-    setEditing(r.id)
-    form.setFieldsValue({
-      zone_id: r.zone_id || undefined, title: r.title,
-      hazard_category: r.hazard_category || undefined, hazard_description: r.hazard_description,
+  const crud = useCrud({
+    list:   (p) => api.getRiskAssessments(p),
+    create: (d) => api.createRiskAssessment(d),
+    update: (id, d) => api.updateRiskAssessment(id, d),
+    remove: (id) => api.deleteRiskAssessment(id),
+    params: { status: statusF, min_score: minScore, project_id: currentProjectId },
+    defaults: { likelihood: 3, severity: 3, status: 'active', assessed_at: dayjs() },
+    toForm: (r) => ({
+      ...r,
+      zone_id: r.zone_id || undefined,
+      hazard_category: r.hazard_category || undefined,
       affected_workers: r.affected_workers || 0,
-      likelihood: r.likelihood, severity: r.severity,
-      current_controls: r.current_controls || '', additional_controls: r.additional_controls || '',
-      responsible_person: r.responsible_person || '',
-      target_date: r.target_date ? dayjs(r.target_date) : null,
-      assessed_by: r.assessed_by || '',
-      assessed_at: r.assessed_at ? dayjs(r.assessed_at) : dayjs(),
-      next_review_date: r.next_review_date ? dayjs(r.next_review_date) : null,
-      status: r.status, notes: r.notes || '',
-    })
-    setModal(true)
-  }
-  const save = async () => {
-    try {
-      const v = await form.validateFields()
-      setSaving(true)
-      const payload = {
-        ...v,
-        target_date: v.target_date ? v.target_date.format('YYYY-MM-DD') : null,
-        assessed_at: v.assessed_at.format('YYYY-MM-DD'),
-        next_review_date: v.next_review_date ? v.next_review_date.format('YYYY-MM-DD') : null,
-      }
-      editing ? await api.updateRiskAssessment(editing, payload) : await api.createRiskAssessment(payload)
-      setModal(false); load(); message.success('Хадгалагдлаа')
-    } catch (e) { if (e?.errorFields) return }
-    finally { setSaving(false) }
-  }
-  const remove = async (id) => { await api.deleteRiskAssessment(id); load(); message.success('Устгагдлаа') }
+      target_date: D(r.target_date),
+      assessed_at: D(r.assessed_at) || dayjs(),
+      next_review_date: D(r.next_review_date),
+    }),
+    toApi: (v) => ({
+      ...v,
+      target_date: F(v.target_date),
+      assessed_at: F(v.assessed_at),
+      next_review_date: F(v.next_review_date),
+    }),
+    onLoaded: () => { api.getRiskStats().then(r => setStats(r.data)).catch(() => {}) },
+  })
+  const rows = crud.rows
+
+  useEffect(() => { api.getDangerZones().then(r => setZones(r.data || [])).catch(() => {}) }, [])
 
   const cols = [
     { title: '№', dataIndex: 'assessment_number', width: 130, render: v => <code>{v}</code> },
@@ -102,8 +77,8 @@ export default function RiskAssessments() {
     { title: '', width: 150, render: (_, r) => (
       <Space size="small">
         <Button size="small" onClick={() => setDetail(r)}>Үзэх</Button>
-        <Button size="small" onClick={() => openEdit(r)}>Засах</Button>
-        <Popconfirm title="Устгах уу?" onConfirm={() => remove(r.id)} okText="Тийм" cancelText="Үгүй">
+        <Button size="small" onClick={() => crud.openEdit(r)}>Засах</Button>
+        <Popconfirm title="Устгах уу?" onConfirm={() => crud.destroy(r.id)} okText="Тийм" cancelText="Үгүй">
           <Button size="small" danger>×</Button>
         </Popconfirm>
       </Space>
@@ -114,7 +89,7 @@ export default function RiskAssessments() {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <h4 style={{ margin: 0, fontWeight: 700 }}>Эрсдэлийн үнэлгээ</h4>
-        <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>Үнэлгээ нэмэх</Button>
+        <Button type="primary" icon={<PlusOutlined />} onClick={() => crud.openCreate()}>Үнэлгээ нэмэх</Button>
       </div>
 
       <Alert type="info" showIcon style={{ marginBottom: 16 }}
@@ -153,15 +128,13 @@ export default function RiskAssessments() {
               ]} />
           </Col>
         </Row>
-        <Table rowKey="id" size="middle" loading={loading}
-          columns={cols} dataSource={rows}
-          pagination={{ pageSize: 20 }} locale={{ emptyText: 'Үнэлгээ алга' }} />
+        <Table {...crud.tableProps} size="middle" columns={cols}
+          locale={{ emptyText: 'Үнэлгээ алга' }} />
       </Card>
 
-      <Modal open={modal} onOk={save} onCancel={() => setModal(false)}
-        title={editing ? 'Үнэлгээ засах' : 'Эрсдэлийн үнэлгээ нэмэх'} confirmLoading={saving}
-        okText="Хадгалах" cancelText="Болих" width={800} destroyOnClose>
-        <Form form={form} layout="vertical" requiredMark={false}>
+      <Modal {...crud.modalProps} width={800}
+        title={crud.editing ? 'Үнэлгээ засах' : 'Эрсдэлийн үнэлгээ нэмэх'}>
+        <Form {...crud.formProps} requiredMark={false}>
           <Row gutter={12}>
             <Col span={24}><Form.Item name="title" label="Гарчиг" rules={[{ required: true }]}><Input placeholder="Өндрөөс унах эрсдэл — 3-р давхар" /></Form.Item></Col>
             <Col span={12}>

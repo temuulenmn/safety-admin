@@ -25,6 +25,7 @@ const nav = [
   { section: 'АЮУЛГҮЙ БАЙДАЛ' },
   { to: '/rfid',             label: 'RFID',               icon: 'badge' },
   { to: '/ppe',              label: 'Хамгаалах хэрэгсэл', icon: 'shield' },
+  { to: '/worker-clothing',  label: 'Хувцасны RFID',      icon: 'badge' },
   { to: '/training',         label: 'Аюулгүйн сургалт',   icon: 'book' },
   { to: '/clothing',         label: 'Хувцас захиалга',    icon: 'layers' },
   { to: '/site-access',      label: 'Хандалтын дүрэм',    icon: 'lock' },
@@ -57,6 +58,9 @@ const nav = [
   { section: 'МАРКЕТПЛЕЙС' },
   { to: '/marketplace',      label: 'Барааны каталог',   icon: 'cart' },
   { to: '/marketplace/orders', label: 'Миний захиалгууд', icon: 'list' },
+  { section: 'ТОХИРГОО' },
+  { to: '/users',            label: 'Хэрэглэгчид',        icon: 'users' },
+  { to: '/billing',          label: 'Захиалга, төлбөр',   icon: 'money' },
 ]
 
 export default function Sidenav({ color = COLOR }) {

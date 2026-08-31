@@ -45,6 +45,7 @@ const api = {
   login:          (data)   => client.post('/auth/login', data),
   me:             ()       => client.get('/auth/me'),
   changePassword: (data)   => client.put('/auth/change-password', data),
+  getMe:          ()       => client.get('/auth/me'),
   getUsers:       ()       => client.get('/auth/users'),
   createUser:     (data)   => client.post('/auth/users', data),
   toggleUser:     (id)     => client.patch(`/auth/users/${id}/toggle`),
@@ -133,7 +134,7 @@ const api = {
   updateClothing:     (id, data)  => client.put(`/clothing/${id}`, data),
   approveClothing:    (id)        => client.post(`/clothing/${id}/approve`),
   rejectClothing:     (id)        => client.post(`/clothing/${id}/reject`),
-  issueClothing:      (id)        => client.post(`/clothing/${id}/issue`),
+  issueClothing:      (id, data = {}) => client.post(`/clothing/${id}/issue`, data),
 
   // ── Site Access ───────────────────────────────────────────────────
   getSiteAccess:      ()          => client.get('/site-access'),
@@ -240,6 +241,7 @@ const api = {
 
   // ── Worker clothing (RFID-tagged PPE) ────────────────────────────
   getWorkerClothing:   (params)   => client.get('/worker-clothing', { params }),
+  getClothingCoverage: ()         => client.get('/worker-clothing/coverage'),
   createWorkerClothing:(data)     => client.post('/worker-clothing', data),
   updateWorkerClothing:(id, data) => client.put(`/worker-clothing/${id}`, data),
   deleteWorkerClothing:(id)       => client.delete(`/worker-clothing/${id}`),

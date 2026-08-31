@@ -4,6 +4,7 @@ import {
   Radio, message, Row, Col,
 } from 'antd'
 import { PlusOutlined, CheckOutlined, CloseOutlined, GiftOutlined } from '@ant-design/icons'
+import { Alert } from 'antd'
 import api from 'src/services/api'
 import dayjs from 'dayjs'
 
@@ -23,6 +24,9 @@ export default function Clothing() {
   const [form]     = Form.useForm()
   const [saving,   setSaving]  = useState(false)
   const [actioning,setActioning]= useState(null)
+  const [issueFor, setIssueFor] = useState(null)   // олгох гэж буй захиалга
+  const [issueForm] = Form.useForm()
+  const [issuing,  setIssuing]  = useState(false)
 
   useEffect(() => { api.getEmployees({ status: 'active', limit: 500 }).then(r => setEmps(r.data || [])) }, [])
 
@@ -87,7 +91,7 @@ export default function Clothing() {
         )}
         {r.status === 'approved' && (
           <Button size="small" type="primary" icon={<GiftOutlined />}
-            loading={actioning === r.id} onClick={() => action(r.id, api.issueClothing, 'Олгогдлоо')}>
+            onClick={() => { setIssueFor(r); issueForm.resetFields() }}>
             Олгох
           </Button>
         )}
@@ -146,6 +150,43 @@ export default function Clothing() {
             </Col>
           </Row>
           <Form.Item name="notes" label="Тэмдэглэл"><Input /></Form.Item>
+        </Form>
+      </Modal>
+
+      {/* Олгохдоо RFID таг уншуулна. Таггүй олгосон хэрэгсэл хаалганд
+          илрэхгүй тул ажилтан «дутуу» гэж бүртгэгдэнэ. */}
+      <Modal
+        open={!!issueFor}
+        title={`Хувцас олгох — ${issueFor?.full_name || ''}`}
+        okText="Олгох" cancelText="Болих" confirmLoading={issuing}
+        onCancel={() => setIssueFor(null)}
+        onOk={async () => {
+          try {
+            const v = await issueForm.validateFields()
+            setIssuing(true)
+            const r = await api.issueClothing(issueFor.id, v.rfid_tag ? { rfid_tag: v.rfid_tag } : {})
+            if (r.data?.rfid?.created) message.success('Олгогдож, RFID таг бүртгэгдлээ')
+            else message.warning('Олгогдлоо — RFID таг бүртгээгүй тул хаалганд илрэхгүй')
+            setIssueFor(null); load()
+          } catch (e) {
+            if (e?.errorFields) return
+            message.error(e?.response?.data?.message || 'Олгоход алдаа гарлаа')
+          } finally { setIssuing(false) }
+        }}>
+        <div style={{ marginBottom: 12 }}>
+          <b>{issueFor?.item_name}</b>
+          {issueFor?.size ? ` · ${issueFor.size}` : ''}
+          {issueFor?.quantity > 1 ? ` · ${issueFor.quantity} ш` : ''}
+        </div>
+        <Alert type="warning" showIcon style={{ marginBottom: 16 }}
+          message="RFID таг заавал уншуулна уу"
+          description="Таггүй олгосон хэрэгслийг хаалганы уншигч таньдаггүй тул ажилтан «хамгаалах хэрэгсэл дутуу» гэж бүртгэгдэж, сануулга эсвэл торгууль хүртэнэ." />
+        <Form form={issueForm} layout="vertical">
+          <Form.Item name="rfid_tag" label="RFID таг (EPC)"
+            extra="Ширээний уншигч дээр тагийг уншуулаад буусан утгыг энд буулгана. Дараа нь «Хувцасны RFID» цэснээс ч бүртгэж болно."
+            rules={[{ pattern: /^[A-Za-z0-9_-]{6,64}$/, message: '6–64 тэмдэгт, зөвхөн үсэг/тоо' }]}>
+            <Input placeholder="жишээ: E2806894000050350BB478E6" style={{ fontFamily: 'monospace' }} autoComplete="off" autoFocus />
+          </Form.Item>
         </Form>
       </Modal>
     </div>

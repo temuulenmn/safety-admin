@@ -8,6 +8,9 @@ const Schedules    = React.lazy(() => import('./views/safety/Schedules'))
 const Payroll      = React.lazy(() => import('./views/safety/Payroll'))
 const Rfid         = React.lazy(() => import('./views/safety/Rfid'))
 const Ppe          = React.lazy(() => import('./views/safety/Ppe'))
+const WorkerClothing = React.lazy(() => import('./views/safety/WorkerClothing'))
+const Users        = React.lazy(() => import('./views/safety/Users'))
+const Billing      = React.lazy(() => import('./views/safety/Billing'))
 const Training     = React.lazy(() => import('./views/safety/Training'))
 const Clothing       = React.lazy(() => import('./views/safety/Clothing'))
 const SiteAccess     = React.lazy(() => import('./views/safety/SiteAccess'))
@@ -50,6 +53,9 @@ const routes = [
   { path: '/payroll',      name: 'Цалин',             element: Payroll },
   { path: '/rfid',         name: 'RFID',              element: Rfid },
   { path: '/ppe',          name: 'Хамгаалах хэрэгсэл', element: Ppe },
+  { path: '/worker-clothing', name: 'Ажлын хувцасны RFID', element: WorkerClothing },
+  { path: '/users',        name: 'Хэрэглэгчид',        element: Users },
+  { path: '/billing',      name: 'Захиалга, төлбөр',   element: Billing },
   { path: '/training',     name: 'Аюулгүйн сургалт', element: Training },
   { path: '/clothing',     name: 'Хувцас захиалга',   element: Clothing },
   { path: '/site-access',  name: 'Хандалтын дүрэм',  element: SiteAccess },
