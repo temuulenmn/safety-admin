@@ -6,6 +6,7 @@ import {
 } from 'antd'
 import { PlusOutlined, ReloadOutlined } from '@ant-design/icons'
 import api from 'src/services/api'
+import { pageInfo } from 'src/utils/pagination'
 import dayjs from 'dayjs'
 
 export default function Rfid() {
@@ -43,7 +44,7 @@ export default function Rfid() {
     api.getRfidScans({ page, limit, date_from, date_to, project_id: currentProjectId || undefined })
       .then(r => {
         setScans(r.data || [])
-        setScanPage({ current: page, pageSize: limit, total: r.total || (r.data || []).length })
+        setScanPage(pageInfo(r, page, limit))
       }).finally(() => setScanLoading(false))
   }, [range, currentProjectId])
   useEffect(() => { if (tab === 'scans') loadScans(1, scanPage.pageSize) /* eslint-disable-next-line */ }, [tab, range, currentProjectId])

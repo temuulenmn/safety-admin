@@ -7,6 +7,7 @@ import {
 } from 'antd'
 import { PlusOutlined, ReloadOutlined, PlayCircleOutlined, CheckOutlined } from '@ant-design/icons'
 import api from 'src/services/api'
+import { pageInfo } from 'src/utils/pagination'
 import dayjs from 'dayjs'
 
 const SHIFT_COLOR = { day: 'green', night: 'blue', rotating: 'orange' }
@@ -53,7 +54,7 @@ function IndividualTab() {
       project_id: currentProjectId || undefined,
     }).then(r => {
       setRows(r.data || [])
-      setPage({ current: p, pageSize: l, total: r.total || (r.data || []).length })
+      setPage(pageInfo(r, p, l))
     }).finally(() => setLoading(false))
   }, [range, currentProjectId])
   useEffect(() => { load(1, page.pageSize) /* eslint-disable-next-line */ }, [range, currentProjectId])

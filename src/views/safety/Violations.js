@@ -6,6 +6,7 @@ import {
 } from 'antd'
 import { PlusOutlined, DownloadOutlined, SettingOutlined } from '@ant-design/icons'
 import api from 'src/services/api'
+import { pageInfo } from 'src/utils/pagination'
 import { downloadCSV } from 'src/utils/exporters'
 import dayjs from 'dayjs'
 
@@ -55,7 +56,7 @@ export default function Violations() {
       project_id: currentProjectId || undefined,
     }).then(r => {
       setRows(r.data || [])
-      setPage({ current: p, pageSize: l, total: r.total || (r.data || []).length })
+      setPage(pageInfo(r, p, l))
     }).finally(() => setLoading(false))
   }, [statusF, typeF, monthF, currentProjectId])
   useEffect(() => { load(1, page.pageSize) /* eslint-disable-next-line */ }, [statusF, typeF, monthF, currentProjectId])

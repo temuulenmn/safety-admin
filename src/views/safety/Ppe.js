@@ -6,6 +6,7 @@ import {
 } from 'antd'
 import { PlusOutlined, ReloadOutlined } from '@ant-design/icons'
 import api from 'src/services/api'
+import { pageInfo } from 'src/utils/pagination'
 import dayjs from 'dayjs'
 
 export default function Ppe() {
@@ -26,7 +27,11 @@ export default function Ppe() {
   const [range, setRange] = useState([dayjs().subtract(7, 'day'), dayjs()])
 
   const loadCategories = () => api.getPpeCategories().then(r => setCategories(r.data || []))
-  const loadItems      = () => api.getPpeItems().then(r => setItems(r.data || []))
+  const [itemPage, setItemPage] = useState({ current: 1, pageSize: 50, total: 0 })
+  const loadItems = (page = 1, limit = 50) =>
+    api.getPpeItems({ page, limit })
+      .then(r => { setItems(r.data || []); setItemPage(pageInfo(r, page, limit)) })
+      .catch(() => {})
   useEffect(() => { loadCategories(); loadItems() }, [])
 
   const loadChecks = useCallback(() => {
@@ -128,7 +133,9 @@ export default function Ppe() {
         </div>
         <Card>
           <Table rowKey="id" size="middle" columns={itemCols} dataSource={items}
-            pagination={{ pageSize: 20 }} locale={{ emptyText: 'Хэрэгсэл алга' }} />
+            pagination={{ ...itemPage, showSizeChanger: false,
+                          onChange: (p, l) => loadItems(p, l) }}
+            locale={{ emptyText: 'Хэрэгсэл алга' }} />
         </Card>
       </>
     ) },

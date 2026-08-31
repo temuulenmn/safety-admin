@@ -5,6 +5,7 @@ import {
 } from 'antd'
 import { PlusOutlined, RollbackOutlined, ScanOutlined } from '@ant-design/icons'
 import api from 'src/services/api'
+import { pageInfo } from 'src/utils/pagination'
 import dayjs from 'dayjs'
 
 const STATUS_COLOR = { available: 'success', checked_out: 'orange', lost: 'red', damaged: 'default' }
@@ -53,7 +54,7 @@ export default function Tools() {
     api.getTools({ page, limit, search: search || undefined, status: statusF || undefined })
       .then(r => {
         setTools(r.data || [])
-        setToolPage({ current: page, pageSize: limit, total: r.total || (r.data || []).length })
+        setToolPage(pageInfo(r, page, limit))
       }).finally(() => setToolLoading(false))
   }, [search, statusF])
 
@@ -62,7 +63,7 @@ export default function Tools() {
     api.getCheckouts({ page, limit, status: coStatus || undefined })
       .then(r => {
         setCos(r.data || [])
-        setCoPage({ current: page, pageSize: limit, total: r.total || (r.data || []).length })
+        setCoPage(pageInfo(r, page, limit))
       }).finally(() => setCoLoading(false))
   }, [coStatus])
 

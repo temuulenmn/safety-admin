@@ -7,6 +7,7 @@ import {
 } from 'antd'
 import { PlusOutlined, WarningOutlined } from '@ant-design/icons'
 import api from 'src/services/api'
+import { pageInfo } from 'src/utils/pagination'
 import dayjs from 'dayjs'
 
 const SEVERITY_COLOR = { minor: 'blue', moderate: 'orange', severe: 'red', fatal: 'magenta' }
@@ -55,7 +56,7 @@ export default function Accidents() {
       project_id: currentProjectId || undefined,
     }).then(r => {
       setRows(r.data || [])
-      setPage({ current: p, pageSize: l, total: r.total || (r.data || []).length })
+      setPage(pageInfo(r, p, l))
     }).finally(() => setLoading(false))
   }, [severity, status, currentProjectId])
   useEffect(() => { load(1, page.pageSize) /* eslint-disable-next-line */ }, [severity, status, currentProjectId])

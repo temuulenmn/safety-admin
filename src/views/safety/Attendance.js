@@ -6,6 +6,7 @@ import {
 } from 'antd'
 import { PlusOutlined, ReloadOutlined } from '@ant-design/icons'
 import api from 'src/services/api'
+import { pageInfo } from 'src/utils/pagination'
 import dayjs from 'dayjs'
 
 export default function Attendance() {
@@ -47,7 +48,7 @@ export default function Attendance() {
       project_id: currentProjectId || undefined,
     }).then(r => {
       setLogs(r.data || [])
-      setLogsPage({ current: page, pageSize: limit, total: r.total || (r.data || []).length })
+      setLogsPage(pageInfo(r, page, limit))
     }).finally(() => setLogsLoading(false))
   }, [range, currentProjectId])
   useEffect(() => { if (tab === 'logs') loadLogs(1, logsPage.pageSize) /* eslint-disable-next-line */ }, [tab, range, currentProjectId])

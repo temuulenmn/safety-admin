@@ -8,6 +8,7 @@ import {
   PlayCircleOutlined, SettingOutlined,
 } from '@ant-design/icons'
 import api from 'src/services/api'
+import { pageInfo } from 'src/utils/pagination'
 import dayjs from 'dayjs'
 
 const ROLE_LABEL = {
@@ -49,7 +50,7 @@ export default function Notifications() {
     api.getNotificationLog({ page: p, limit: l })
       .then(r => {
         setLog(r.data || [])
-        setLogPage({ current: p, pageSize: l, total: r.total || (r.data || []).length })
+        setLogPage(pageInfo(r, p, l))
       }).finally(() => setLogLoading(false))
   }, [])
   useEffect(() => { if (tab === 'log') loadLog(1, logPage.pageSize) /* eslint-disable-next-line */ }, [tab])

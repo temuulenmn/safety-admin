@@ -5,6 +5,7 @@ import {
 } from 'antd'
 import { PlusOutlined, EditOutlined, QrcodeOutlined, LockOutlined, UserDeleteOutlined } from '@ant-design/icons'
 import api from 'src/services/api'
+import { pageInfo } from 'src/utils/pagination'
 import dayjs from 'dayjs'
 import { MN_BANKS } from 'src/utils/banks'
 import EmployeeQrModal from 'src/components/EmployeeQrModal'
@@ -42,7 +43,7 @@ export default function Employees() {
     api.getEmployees({ page: p, limit: l, search, status: statusF || undefined })
       .then(r => {
         setRows(r.data || [])
-        setPage({ current: p, pageSize: l, total: r.total || (r.data || []).length })
+        setPage(pageInfo(r, p, l))
       }).finally(() => setLoading(false))
   }, [search, statusF])
   useEffect(() => { load(1, page.pageSize) /* eslint-disable-next-line */ }, [statusF])
