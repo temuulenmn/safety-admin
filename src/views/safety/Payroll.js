@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react'
 import {
-  Row, Col, Card, Table, Tag, Button, Modal, Form, InputNumber, DatePicker,
-  Space, Empty, Spin, Popconfirm, Input, message,
+  Row, Col, Card, Table, Tag, Button, Modal, Form, InputNumber, Space, Empty, Spin, Popconfirm, Input, message,
 } from 'antd'
+import DatePicker from 'src/components/DatePicker'
 import { PlusOutlined, DownloadOutlined, ReloadOutlined, CheckOutlined } from '@ant-design/icons'
 import api from 'src/services/api'
 import { downloadCSV } from 'src/utils/exporters'

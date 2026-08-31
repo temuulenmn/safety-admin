@@ -1,8 +1,8 @@
 import React, { useState, useCallback, useEffect } from 'react'
 import {
-  Row, Col, Card, Table, Tag, Button, Modal, Form, Input, Select, DatePicker,
-  InputNumber, Space, Checkbox, message, Alert,
+  Row, Col, Card, Table, Tag, Button, Modal, Form, Input, Select, InputNumber, Space, Checkbox, message, Alert,
 } from 'antd'
+import DatePicker from 'src/components/DatePicker'
 import { PlusOutlined, EditOutlined, QrcodeOutlined, LockOutlined, UserDeleteOutlined } from '@ant-design/icons'
 import api from 'src/services/api'
 import { pageInfo } from 'src/utils/pagination'

@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useCallback } from 'react'
 import {
-  Row, Col, Card, Table, Tag, Button, Modal, Form, Input, Select, DatePicker,
-  InputNumber, Space, Statistic, Alert, Popconfirm, Checkbox, message,
+  Row, Col, Card, Table, Tag, Button, Modal, Form, Input, Select, InputNumber, Space, Statistic, Alert, Popconfirm, Checkbox, message,
 } from 'antd'
+import DatePicker from 'src/components/DatePicker'
 import { PlusOutlined, FileTextOutlined, WarningOutlined } from '@ant-design/icons'
 import api from 'src/services/api'
 import { useCrud } from 'src/hooks/useCrud'

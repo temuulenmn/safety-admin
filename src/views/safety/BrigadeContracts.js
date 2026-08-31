@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react'
 import { useSelector } from 'react-redux'
 import {
-  Row, Col, Card, Table, Tag, Button, Modal, Form, Input, Select, DatePicker,
-  InputNumber, Space, Alert, Progress, Popconfirm, Statistic, message,
+  Row, Col, Card, Table, Tag, Button, Modal, Form, Input, Select, InputNumber, Space, Alert, Progress, Popconfirm, Statistic, message,
 } from 'antd'
+import DatePicker from 'src/components/DatePicker'
 import { PlusOutlined, PlayCircleOutlined, CheckOutlined, DollarOutlined } from '@ant-design/icons'
 import api from 'src/services/api'
 import dayjs from 'dayjs'

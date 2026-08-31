@@ -1,10 +1,9 @@
 import React, { useEffect, useState, useCallback } from 'react'
 import { useSelector } from 'react-redux'
 import {
-  Row, Col, Card, Table, Tag, Button, Modal, Form, Input, Select, DatePicker,
-  InputNumber, Space, Statistic, Alert, Checkbox, Popconfirm, Descriptions, message,
-  Divider, Empty, Spin, Typography,
+  Row, Col, Card, Table, Tag, Button, Modal, Form, Input, Select, InputNumber, Space, Statistic, Alert, Checkbox, Popconfirm, Descriptions, message, Divider, Empty, Spin, Typography,
 } from 'antd'
+import DatePicker from 'src/components/DatePicker'
 import { PlusOutlined, WarningOutlined } from '@ant-design/icons'
 import api from 'src/services/api'
 import { pageInfo } from 'src/utils/pagination'

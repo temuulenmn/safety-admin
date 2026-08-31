@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useCallback } from 'react'
 import {
-  Row, Col, Card, Table, Tag, Button, Modal, Form, Input, Select,
-  DatePicker, Space, Statistic, Alert, Popconfirm, message, Tooltip,
+  Row, Col, Card, Table, Tag, Button, Modal, Form, Input, Select, Space, Statistic, Alert, Popconfirm, message, Tooltip,
 } from 'antd'
+import DatePicker from 'src/components/DatePicker'
 import { PlusOutlined, WarningOutlined, TagsOutlined } from '@ant-design/icons'
 import api from 'src/services/api'
 import dayjs from 'dayjs'

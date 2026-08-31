@@ -144,10 +144,10 @@ const api = {
   checkAccess:        (data)      => client.post('/site-access/check', data),
 
   // ── Dashboard ─────────────────────────────────────────────────────
-  getDashboardOverview:       ()        => client.get('/dashboard/overview'),
+  getDashboardOverview:       (params)  => client.get('/dashboard/overview', { params }),
   getAttendanceTrend:         (params)  => client.get('/dashboard/attendance-trend', { params }),
   getRfidDeniedReasons:       (params)  => client.get('/dashboard/rfid-denied-reasons', { params }),
-  getTrainingCompliance:      ()        => client.get('/dashboard/training-compliance'),
+  getTrainingCompliance:      (params)  => client.get('/dashboard/training-compliance', { params }),
 
   // ── Marketplace (company-side) ────────────────────────────────────
   getMarketCatalog:        (params)     => client.get('/marketplace/items', { params }),

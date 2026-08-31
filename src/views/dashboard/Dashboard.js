@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { useSelector } from 'react-redux'
 import { Link } from 'react-router-dom'
 import { Row, Col, Card, Statistic, Tag, Progress, Spin, Empty, Alert, Button, Space } from 'antd'
 import {
@@ -32,20 +33,26 @@ export default function Dashboard() {
   const [law,        setLaw]        = useState({ ins: null, acc: null, hc: null })
   const [loading,    setLoading]    = useState(true)
 
+  // Толгойн төслийн сонголт. Өмнө нь хянах самбар үүнийг огт тооцдоггүй
+  // байсан тул төсөл сонгоход тоо огт өөрчлөгддөггүй байв.
+  const currentProjectId = useSelector((s) => s.currentProjectId)
+
   useEffect(() => {
+    setLoading(true)
+    const p = currentProjectId || undefined
     Promise.all([
-      api.getDashboardOverview(),
-      api.getAttendanceTrend({ days: 14 }),
-      api.getRfidDeniedReasons({ days: 7 }),
-      api.getTrainingCompliance(),
+      api.getDashboardOverview({ project_id: p }),
+      api.getAttendanceTrend({ days: 14, project_id: p }),
+      api.getRfidDeniedReasons({ days: 7, project_id: p }),
+      api.getTrainingCompliance({ project_id: p }),
       api.getInsuranceStats().catch(() => ({ data: null })),
-      api.getAccidentStats().catch(() => ({ data: null })),
+      api.getAccidentStats({ project_id: p }).catch(() => ({ data: null })),
       api.getHealthCheckStats().catch(() => ({ data: null })),
     ]).then(([ov, tr, dn, cp, ins, acc, hc]) => {
       setData(ov.data); setTrend(tr.data); setDenied(dn.data); setCompliance(cp.data)
       setLaw({ ins: ins.data, acc: acc.data, hc: hc.data })
     }).catch(console.error).finally(() => setLoading(false))
-  }, [])
+  }, [currentProjectId])
 
   const uncovered = law.ins ? Math.max(0, (law.ins.high_risk_workers || 0) - (law.ins.insured_workers || 0)) : 0
   const alerts = []
