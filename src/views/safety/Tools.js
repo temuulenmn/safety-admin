@@ -14,6 +14,7 @@ export default function Tools() {
   const [tab,    setTab]   = useState('inventory')
 
   // Ширээний UHF уншигчийн горим — багаж + карт хоёрыг дараалан уншуулна
+  const [tagF, setTagF] = useState()              // pending | tagged
   const [scanModal, setScanModal] = useState(false)
   const [scanForm]  = Form.useForm()
   const [scanning,  setScanning]  = useState(false)
@@ -65,7 +66,7 @@ export default function Tools() {
       }).finally(() => setCoLoading(false))
   }, [coStatus])
 
-  useEffect(() => { if (tab === 'inventory') loadTools(1, toolPage.pageSize) /* eslint-disable-next-line */}, [tab, statusF])
+  useEffect(() => { if (tab === 'inventory') loadTools(1, toolPage.pageSize) /* eslint-disable-next-line */}, [tab, statusF, tagF])
   useEffect(() => { if (tab === 'checkouts') loadCos(1, coPage.pageSize) /* eslint-disable-next-line */}, [tab, coStatus])
 
   const openToolCreate = () => { setTEditing(null); tForm.resetFields(); setTModal(true) }
@@ -111,7 +112,11 @@ export default function Tools() {
     { title: 'Код', dataIndex: 'code', width: 110 },
     { title: 'Нэр', dataIndex: 'name' },
     { title: 'Ангилал', dataIndex: 'category', width: 130, render: v => v || '—' },
-    { title: 'RFID', dataIndex: 'rfid_tag', width: 160, render: v => <code>{v}</code> },
+    { title: 'RFID', dataIndex: 'rfid_tag', width: 210,
+      render: (v, r) => v
+        ? <code style={{ fontSize: 12 }}>{v}</code>
+        : <Tag color="warning" style={{ cursor: 'pointer' }}
+            onClick={() => openToolEdit(r)}>таг хүлээгдэж буй</Tag> },
     { title: 'Нярав', dataIndex: 'storekeeper_name', width: 140, render: v => v || '—' },
     { title: 'Төлөв', dataIndex: 'status', width: 120,
       render: v => <Tag color={STATUS_COLOR[v] || 'default'}>{STATUS_LABEL[v] || v}</Tag> },
@@ -152,6 +157,14 @@ export default function Tools() {
             <Select value={statusF} onChange={setStatusF} allowClear
               placeholder="Бүх төлөв" style={{ width: '100%' }}
               options={Object.entries(STATUS_LABEL).map(([k, l]) => ({ value: k, label: l }))} />
+          </Col>
+          <Col xs={12} sm={6}>
+            <Select value={tagF} onChange={setTagF} allowClear
+              placeholder="RFID таг" style={{ width: '100%' }}
+              options={[
+                { value: 'pending', label: 'Таг хүлээгдэж буй' },
+                { value: 'tagged',  label: 'Тагтай' },
+              ]} />
           </Col>
         </Row>
         <Table rowKey="id" size="middle" loading={toolLoading}
@@ -199,6 +212,7 @@ export default function Tools() {
             ['Авагдсан',  stats.checked_out, '#faad14'],
             ['Алдсан',    stats.lost,        '#cf1322'],
             ['Эвдрэлтэй', stats.damaged,     '#8c8c8c'],
+            ['Таггүй',    stats.tag_pending, '#fa8c16'],
           ].map(([l, v, c]) => (
             <Col key={l} xs={12} sm={4} md={4}>
               <Card size="small" style={{ textAlign: 'center' }}>
@@ -207,6 +221,13 @@ export default function Tools() {
             </Col>
           ))}
         </Row>
+      )}
+
+      {stats?.tag_pending > 0 && (
+        <Alert type="warning" showIcon style={{ marginBottom: 16 }}
+          message={`${stats.tag_pending} багаж физик RFID тагтай биш`}
+          description="Эдгээр багаж хаалганы уншигчид хэзээ ч илрэхгүй. Таг наасны дараа «RFID таг» баганын шар тэмдэглэгээ дээр дарж EPC-г оруулна уу."
+          action={<Button size="small" onClick={() => { setTab('inventory'); setTagF('pending') }}>Харах</Button>} />
       )}
 
       <Tabs activeKey={tab} onChange={setTab} items={items} />
@@ -219,7 +240,13 @@ export default function Tools() {
             <Col span={12}><Form.Item name="code" label="Код" rules={[{ required: true }]}><Input /></Form.Item></Col>
             <Col span={12}><Form.Item name="category" label="Ангилал"><Input /></Form.Item></Col>
             <Col span={24}><Form.Item name="name" label="Нэр" rules={[{ required: true }]}><Input /></Form.Item></Col>
-            <Col span={24}><Form.Item name="rfid_tag" label="RFID tag" rules={[{ required: true }]}><Input /></Form.Item></Col>
+            <Col span={24}>
+              <Form.Item name="rfid_tag" label="RFID таг (EPC)"
+                extra="Хоосон үлдээвэл «таг хүлээгдэж буй» болно. Уншигч дээр уншуулаад буусан утгыг буулгана."
+                rules={[{ pattern: /^([0-9A-Fa-f]{24}|[0-9A-Fa-f]{32})$/, message: '24 (EPC-96) эсвэл 32 (EPC-128) hex тэмдэгт' }]}>
+                <Input placeholder="E2806894000050350BB478E6" style={{ fontFamily: 'monospace' }} allowClear />
+              </Form.Item>
+            </Col>
             <Col span={24}>
               <Form.Item name="storekeeper_id" label="Нярав">
                 <Select allowClear showSearch optionFilterProp="label" placeholder="-- Сонгох --"
