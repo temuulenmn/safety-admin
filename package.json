@@ -9,7 +9,8 @@
     "build": "vite build",
     "lint": "eslint",
     "serve": "vite preview",
-    "start": "vite"
+    "start": "vite",
+    "check:loops": "node scripts/check-render-loops.js"
   },
   "dependencies": {
     "@ant-design/icons": "^4.8.3",

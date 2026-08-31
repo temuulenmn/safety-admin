@@ -20,7 +20,7 @@ const PenaltyFund    = React.lazy(() => import('./views/safety/PenaltyFund'))
 const Brigades       = React.lazy(() => import('./views/safety/Brigades'))
 const BrigadeContracts = React.lazy(() => import('./views/safety/BrigadeContracts'))
 const DangerZones    = React.lazy(() => import('./views/safety/DangerZones'))
-const MorningInspection = React.lazy(() => import('./views/safety/MorningInspection'))
+// const MorningInspection = React.lazy(() => import('./views/safety/MorningInspection'))   // ⏸ түр хассан
 const Documents      = React.lazy(() => import('./views/safety/Documents'))
 const MarketCatalog  = React.lazy(() => import('./views/marketplace/Catalog'))
 const MarketOrders   = React.lazy(() => import('./views/marketplace/Orders'))
@@ -65,7 +65,11 @@ const routes = [
   { path: '/brigades',          name: 'Бригадууд',        element: Brigades },
   { path: '/brigade-contracts', name: 'Бригадын гэрээ',   element: BrigadeContracts },
   { path: '/danger-zones',      name: 'Аюултай бүс',      element: DangerZones },
-  { path: '/morning-inspection',name: 'Өглөөний шалгалт', element: MorningInspection },
+  // ⏸ Өглөөний шалгалт — түр хассан (2026-08-31).
+  // Ажилтан талбайд орохдоо хаалганы RFID уншигчаар ХХХ-ээ бүрэн
+  // шалгуулдаг тул өглөөний тусдаа шалгалт давхардаж байна. Backend,
+  // өгөгдөл, дэлгэц бүгд байрандаа — дахин нээхэд эдгээр мөрийг сэргээнэ.
+  // { path: '/morning-inspection',name: 'Өглөөний шалгалт', element: MorningInspection },
   { path: '/documents',         name: 'Норм дүрэм',       element: Documents },
   { path: '/materials',         name: 'Материалын тооцоо', element: Materials },
   { path: '/kpi',               name: 'KPI',              element: Kpi },

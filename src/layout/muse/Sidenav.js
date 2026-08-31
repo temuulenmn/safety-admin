@@ -30,7 +30,11 @@ const nav = [
   { to: '/clothing',         label: 'Хувцас захиалга',    icon: 'layers' },
   { to: '/site-access',      label: 'Хандалтын дүрэм',    icon: 'lock' },
   { to: '/danger-zones',     label: 'Аюултай бүс',        icon: 'fire' },
-  { to: '/morning-inspection', label: 'Өглөөний шалгалт', icon: 'check' },
+  // ⏸ Өглөөний шалгалт — түр хассан (2026-08-31).
+  // Ажилтан талбайд орохдоо хаалганы RFID уншигчаар ХХХ-ээ бүрэн
+  // шалгуулдаг тул өглөөний тусдаа шалгалт давхардаж байна. Backend,
+  // өгөгдөл, дэлгэц бүгд байрандаа — дахин нээхэд эдгээр мөрийг сэргээнэ.
+  // { to: '/morning-inspection', label: 'Өглөөний шалгалт', icon: 'check' },
   { to: '/documents',        label: 'Норм дүрэм / Заавар', icon: 'file' },
   { to: '/materials',        label: 'Материалын тооцоо',  icon: 'calc' },
   { to: '/tools',            label: 'Багаж хэрэгсэл',    icon: 'wrench' },

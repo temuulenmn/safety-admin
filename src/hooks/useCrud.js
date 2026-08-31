@@ -48,34 +48,42 @@ export function useCrud({
   const [page, setPage]       = useState({ current: 1, pageSize, total: 0 })
   const [form]                = Form.useForm()
 
-  // Шүүлтүүрийг тогтвортой түлхүүр болгож useCallback-ийн хамаарлыг барина —
-  // объект шууд дамжуулбал render бүрд шинэ ишлэл болж мөчлөг үүсгэнэ.
+  // ⚠ ХАМГИЙН ЧУХАЛ: дуудагч дэлгэцүүд list/create/update/remove-ыг
+  // `list: (p) => api.getProjects(p)` гэж МӨРӨНД НЬ бичдэг тул render бүрд
+  // ШИНЭ функц үүснэ. Хэрэв тэдгээрийг useCallback-ийн хамаарал болговол:
+  //   render → шинэ list → шинэ load → useEffect → setState → render → ...
+  // буюу хязгааргүй давталт үүсч, сервер рүү таслалтгүй хүсэлт цутгана.
+  // Тиймээс БҮХ callback-ийг ref-д хадгалж, зөвхөн шүүлтүүр/хуудасны
+  // хэмжээ өөрчлөгдөхөд л дахин ачаална.
+  const fns = useRef({ list, create, update, remove, toForm, toApi, onLoaded })
+  fns.current = { list, create, update, remove, toForm, toApi, onLoaded }
+
+  // Шүүлтүүрийг тогтвортой түлхүүр болгоно — объект шууд дамжуулбал render
+  // бүрд шинэ ишлэл болж мөн адил мөчлөг үүснэ.
   const paramsKey = JSON.stringify(params)
   const paramsRef = useRef(params)
   paramsRef.current = params
-  const onLoadedRef = useRef(onLoaded)
-  onLoadedRef.current = onLoaded
 
   const load = useCallback(async (p = 1, size = pageSize) => {
-    if (!list) return
+    const fn = fns.current.list
+    if (!fn) return
     setLoading(true)
     try {
-      const res = await list({ ...paramsRef.current, page: p, limit: size })
+      const res = await fn({ ...paramsRef.current, page: p, limit: size })
       const data = res?.data || []
       setRows(data)
       setPage({
-        current: res?.pagination?.page || p,
-        pageSize: res?.pagination?.limit || size,
-        total: res?.pagination?.total ?? data.length,
+        current: res?.pagination?.page ?? p,
+        pageSize: res?.pagination?.limit ?? size,
+        total: res?.pagination?.total ?? res?.total ?? data.length,
       })
-      onLoadedRef.current?.(data, res?.pagination)
+      fns.current.onLoaded?.(data, res?.pagination)
     } catch {
       // interceptor аль хэдийн мессеж харуулсан; хуучин мөрүүдийг үлдээнэ
     } finally {
       setLoading(false)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [list, pageSize, paramsKey])
+  }, [pageSize, paramsKey])
 
   useEffect(() => { if (autoLoad) load(1, pageSize) }, [load, autoLoad, pageSize])
 
@@ -90,10 +98,9 @@ export function useCrud({
   const openEdit = useCallback((row) => {
     setEditing(row.id)
     form.resetFields()
-    form.setFieldsValue(toForm(row))
+    form.setFieldsValue(fns.current.toForm(row))
     setOpen(true)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form, toForm])
+  }, [form])
 
   const close = useCallback(() => setOpen(false), [])
 
@@ -106,9 +113,9 @@ export function useCrud({
     }
     setSaving(true)
     try {
-      const payload = toApi(values)
-      if (editing) await update(editing, payload)
-      else await create(payload)
+      const payload = fns.current.toApi(values)
+      if (editing) await fns.current.update(editing, payload)
+      else await fns.current.create(payload)
       setOpen(false)
       await load(editing ? page.current : 1, page.pageSize)
       return true
@@ -117,11 +124,11 @@ export function useCrud({
     } finally {
       setSaving(false)
     }
-  }, [form, toApi, editing, update, create, load, page.current, page.pageSize])
+  }, [form, editing, load, page.current, page.pageSize])
 
   const destroy = useCallback(async (id) => {
     try {
-      await remove(id)
+      await fns.current.remove(id)
       // Сүүлийн мөрийг устгавал өмнөх хуудас руу шилжинэ
       const lastOnPage = rows.length === 1 && page.current > 1
       await load(lastOnPage ? page.current - 1 : page.current, page.pageSize)
@@ -129,7 +136,7 @@ export function useCrud({
     } catch {
       return false
     }
-  }, [remove, load, rows.length, page.current, page.pageSize])
+  }, [load, rows.length, page.current, page.pageSize])
 
   const tableProps = useMemo(() => ({
     rowKey: 'id',
